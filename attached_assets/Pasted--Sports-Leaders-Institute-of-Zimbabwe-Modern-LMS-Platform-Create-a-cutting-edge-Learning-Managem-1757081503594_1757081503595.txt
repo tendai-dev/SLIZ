@@ -1,0 +1,197 @@
+# Sports Leaders Institute of Zimbabwe - Modern LMS Platform
+
+Create a cutting-edge Learning Management System for the Sports Leaders Institute of Zimbabwe with the following specifications:
+
+## Core Technology Stack
+- **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
+- **Authentication**: Clerk for complete user management
+- **Database**: PostgreSQL with Prisma ORM
+- **SCORM Support**: Built-in SCORM 1.2 and 2004 compliance
+- **Deployment**: Vercel-ready configuration
+
+## Authentication & User Management
+- Implement Clerk authentication with custom sign-up/sign-in forms
+- User roles: Admin, Instructor, Student
+- Profile management with avatar upload
+- Social login options (Google, LinkedIn)
+- Custom onboarding flow for sports leadership context
+
+## UI/UX Design Requirements
+Create a **futuristic sports-themed design** with:
+- Dark mode with neon accent colors (electric blue, lime green)
+- Glassmorphism cards and components
+- Smooth micro-interactions and animations
+- 3D hover effects on course cards
+- Modern typography (Inter/Poppins)
+- Responsive design for all devices
+- Loading states with skeleton UI
+- Toast notifications for user feedback
+
+## Landing Page Components
+Design a stunning landing page featuring:
+- Hero section with animated sports leadership visuals
+- Course showcase with 3D card previews
+- Testimonials carousel
+- Statistics counter (students enrolled, courses completed)
+- Call-to-action sections
+- Footer with contact information
+- Mobile hamburger navigation
+
+## Dashboard Systems
+
+### Student Dashboard
+- Personal learning progress visualization
+- Course enrollment status
+- Certificate gallery
+- Achievement badges system
+- Study calendar integration
+- Performance analytics charts
+- Bookmarked content
+- Discussion forum access
+
+### Instructor Dashboard
+- Course creation and management tools
+- Student progress tracking
+- Grade management system
+- Content upload interface
+- Analytics and reporting
+- Communication tools
+- Schedule management
+
+### Admin Dashboard
+- User management (CRUD operations)
+- Course approval workflow
+- System analytics and metrics
+- Content moderation tools
+- Bulk user import/export
+- Platform settings configuration
+- Revenue tracking (if applicable)
+
+## SCORM Course Integration
+Build infrastructure for 4 built-in SCORM courses:
+1. **Sports Leadership Fundamentals**
+2. **Team Management & Communication**
+3. **Athletic Program Development**
+4. **Sports Administration & Governance**
+
+Features needed:
+- SCORM package upload and extraction
+- Progress tracking and completion status
+- Grade passback functionality
+- Bookmark and resume capability
+- Time tracking for course sessions
+- Quiz and assessment integration
+- Certificate generation upon completion
+
+## Core LMS Features
+
+### Course Management
+- Drag-and-drop course builder
+- Video streaming with progress tracking
+- PDF viewer integration
+- Interactive assignments
+- Discussion forums per course
+- Live video sessions (optional)
+- Course categories and filtering
+- Search functionality
+
+### Assessment System
+- Multiple question types (MCQ, essay, true/false)
+- Timed assessments
+- Randomized question pools
+- Instant feedback
+- Grade weighting options
+- Plagiarism detection (basic)
+- Retake policies
+
+### Communication Tools
+- Messaging system between users
+- Announcement broadcasts
+- Email notifications
+- Real-time chat support
+- Forum discussions
+- Video conferencing integration
+
+### Progress Tracking
+- Completion percentages
+- Time spent tracking
+- Learning path visualization
+- Skill progression mapping
+- Performance benchmarking
+- Automated report generation
+
+## Database Schema Requirements
+Design tables for:
+- Users (with Clerk integration)
+- Courses and modules
+- Enrollments and progress
+- Assessments and grades
+- SCORM packages and tracking
+- Certificates and achievements
+- Forum posts and discussions
+- Notifications and messages
+
+## Additional Features
+- **Multi-language support** (English primary)
+- **Offline content download** for mobile
+- **Calendar integration** for deadlines
+- **Gamification elements** (points, badges, leaderboards)
+- **Content versioning** system
+- **Backup and export** functionality
+- **API endpoints** for future integrations
+- **SEO optimization** for course discovery
+- **Analytics dashboard** with data visualization
+
+## File Structure
+Organize the project with:
+```
+/pages (or /app for App Router)
+/components
+  /ui (reusable components)
+  /dashboard
+  /course
+  /auth
+/lib (utilities, database, Clerk config)
+/styles (Tailwind configuration)
+/public (assets, images)
+/prisma (database schema)
+/types (TypeScript definitions)
+```
+
+## Environment Variables Needed
+```
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+DATABASE_URL=
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=
+```
+
+## Performance Requirements
+- Page load times under 2 seconds
+- Smooth animations at 60fps
+- Optimized images with Next.js Image component
+- Lazy loading for course content
+- CDN integration for static assets
+- Database query optimization
+
+## Sports Leadership Context
+Ensure the platform reflects sports industry needs:
+- Sports-specific terminology and imagery
+- Leadership competency frameworks
+- Team building exercise templates
+- Case studies from sports organizations
+- Industry certification pathways
+- Networking features for sports professionals
+
+## Accessibility Requirements
+- WCAG 2.1 AA compliance
+- Keyboard navigation support
+- Screen reader compatibility
+- High contrast mode option
+- Font size adjustment controls
+- Alt text for all images
+
+Build this as a production-ready platform that can scale to serve hundreds of sports leaders across Zimbabwe and beyond. Focus on creating an engaging, professional learning experience that reflects the cutting-edge nature of modern sports leadership development.
+
+Generate all necessary code files, configurations, and documentation to create this complete LMS platform.
