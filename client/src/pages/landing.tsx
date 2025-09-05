@@ -89,6 +89,16 @@ export default function Landing() {
             </div>
 
             <div className={`relative transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              {/* Sports Hero Image */}
+              <div className="mb-6 rounded-2xl overflow-hidden shadow-2xl">
+                <img 
+                  src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600&q=80"
+                  alt="Sports Leadership Training" 
+                  className="w-full h-80 object-cover"
+                  data-testid="img-sports-hero"
+                />
+              </div>
+              
               {/* Hero Dashboard Preview */}
               <Card className="glass-card rounded-2xl p-6 transform rotate-3 hover:rotate-0 transition-transform duration-500">
                 <CardContent className="p-0">

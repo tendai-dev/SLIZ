@@ -6,7 +6,7 @@
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(240, 10%, 4%);
+  --foreground: hsl(240, 10%, 10%);
   --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(240, 10%, 4%);
   --popover: hsl(0, 0%, 100%);
@@ -16,7 +16,7 @@
   --secondary: hsl(240, 4.8%, 95.9%);
   --secondary-foreground: hsl(240, 5.9%, 10%);
   --muted: hsl(240, 4.8%, 95.9%);
-  --muted-foreground: hsl(240, 3.8%, 46.1%);
+  --muted-foreground: hsl(240, 10%, 25%);
   --accent: hsl(84, 100%, 35%);
   --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 84%, 60%);
@@ -48,7 +48,7 @@
 
 .dark {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(240, 10%, 4%);
+  --foreground: hsl(240, 10%, 10%);
   --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(240, 10%, 4%);
   --popover: hsl(0, 0%, 100%);
@@ -58,7 +58,7 @@
   --secondary: hsl(240, 4.8%, 95.9%);
   --secondary-foreground: hsl(240, 5.9%, 10%);
   --muted: hsl(240, 4.8%, 95.9%);
-  --muted-foreground: hsl(240, 3.8%, 46.1%);
+  --muted-foreground: hsl(240, 10%, 25%);
   --accent: hsl(84, 100%, 35%);
   --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 84%, 60%);
@@ -152,7 +152,7 @@
 
 @layer utilities {
   .text-gradient {
-    @apply text-transparent bg-gradient-to-r from-primary to-accent bg-clip-text;
+    @apply text-transparent bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text font-bold;
   }
 
   .neon-glow-primary {
