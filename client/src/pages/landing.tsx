@@ -3,7 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Navigation } from '@/components/navigation';
 import { CourseCard } from '@/components/course-card';
+import { ScormLauncher } from '@/components/scorm-player';
 import { Trophy, Medal, Star, Users, Clock, Play, Video, Rocket, Calendar } from 'lucide-react';
+import { SignInButton, SignUpButton } from '@clerk/clerk-react';
+import { useQuery } from '@tanstack/react-query';
 
 export default function Landing() {
   const [isVisible, setIsVisible] = useState(false);
@@ -12,17 +15,19 @@ export default function Landing() {
     setIsVisible(true);
   }, []);
 
-  const handleSignIn = () => {
-    window.location.href = '/api/login';
-  };
-
-  const handleGetStarted = () => {
-    window.location.href = '/api/login';
-  };
+  // Fetch actual SCORM courses from the API
+  const { data: scormCourses = [] } = useQuery({
+    queryKey: ['/api/courses'],
+    queryFn: async () => {
+      const response = await fetch('/api/courses');
+      if (!response.ok) throw new Error('Failed to fetch courses');
+      return response.json();
+    },
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Navigation onSignIn={handleSignIn} onGetStarted={handleGetStarted} />
+      <Navigation />
       
       {/* Hero Section */}
       <section className="hero-bg min-h-screen flex items-center relative overflow-hidden">
@@ -51,15 +56,16 @@ export default function Landing() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105"
-                  onClick={handleGetStarted}
-                  data-testid="button-start-learning"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Learning Today
-                </Button>
+                <SignUpButton mode="modal">
+                  <Button 
+                    size="lg" 
+                    className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105"
+                    data-testid="button-start-learning"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Learning Today
+                  </Button>
+                </SignUpButton>
                 <Button 
                   size="lg" 
                   variant="outline" 
@@ -188,54 +194,52 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <CourseCard
-              id="1"
-              title="Sports Leadership Fundamentals"
-              description="Master the core principles of effective sports leadership and team management"
-              imageUrl="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
-              difficulty="Foundation"
-              duration="8 weeks"
-              students={156}
-              rating={4.9}
-              progress={0}
-              onEnroll={() => handleGetStarted()}
-            />
-            <CourseCard
-              id="2"
-              title="Team Management & Communication"
-              description="Develop advanced communication skills and team dynamics management"
-              imageUrl="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
-              difficulty="Intermediate"
-              duration="6 weeks"
-              students={89}
-              rating={4.8}
-              progress={0}
-              onEnroll={() => handleGetStarted()}
-            />
-            <CourseCard
-              id="3"
-              title="Athletic Program Development"
-              description="Design and implement comprehensive athletic programs from conception to execution"
-              imageUrl="https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
-              difficulty="Advanced"
-              duration="10 weeks"
-              students={67}
-              rating={4.9}
-              progress={0}
-              onEnroll={() => handleGetStarted()}
-            />
-            <CourseCard
-              id="4"
-              title="Sports Administration & Governance"
-              description="Navigate complex sports governance, compliance, and administrative excellence"
-              imageUrl="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
-              difficulty="Professional"
-              duration="12 weeks"
-              students={43}
-              rating={4.7}
-              progress={0}
-              onEnroll={() => handleGetStarted()}
-            />
+            {scormCourses.length > 0 ? (
+              scormCourses.slice(0, 4).map((course: any) => (
+                <ScormLauncher
+                  key={course.id}
+                  courseId={course.id}
+                  courseTitle={course.title}
+                  description={course.description}
+                />
+              ))
+            ) : (
+              // Fallback SCORM courses if API fails
+              [
+                {
+                  id: "s-l-i-z-micro-course-1-sport-facility-and-event-management-scorm12-QOrGCF5z",
+                  title: "Sport Facility and Event Management",
+                  description: "Master the fundamentals of managing sports facilities and organizing successful events. Learn best practices for facility operations, event planning, and resource management.",
+                  imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+                },
+                {
+                  id: "s-l-i-z-micro-course-2-basic-finance-management-scorm12-D24iHB-D", 
+                  title: "Basic Finance Management",
+                  description: "Learn essential financial management skills for sports organizations. Cover budgeting, financial planning, and revenue optimization strategies.",
+                  imageUrl: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+                },
+                {
+                  id: "s-l-i-z-micro-course-3-sport-marketing-scorm12-LpQGKIfD",
+                  title: "Sport Marketing",
+                  description: "Develop effective marketing strategies for sports brands and events. Master digital marketing, sponsorship management, and fan engagement techniques.",
+                  imageUrl: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+                },
+                {
+                  id: "s-l-i-z-micro-course-4-management-of-sport-organizations-scorm12-wrUhSRL8",
+                  title: "Management of Sport Organizations", 
+                  description: "Lead and manage sports organizations with confidence and expertise. Learn organizational leadership, strategic planning, and governance principles.",
+                  imageUrl: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+                }
+              ].map((course) => (
+                <ScormLauncher
+                  key={course.id}
+                  courseId={course.id}
+                  courseTitle={course.title}
+                  description={course.description}
+                  imageUrl={course.imageUrl}
+                />
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -313,15 +317,16 @@ export default function Landing() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Button 
-                size="lg" 
-                className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105 text-lg px-8 py-4"
-                onClick={handleGetStarted}
-                data-testid="button-start-journey"
-              >
-                <Rocket className="w-5 h-5 mr-2" />
-                Start Your Journey Today
-              </Button>
+              <SignUpButton mode="modal">
+                <Button 
+                  size="lg" 
+                  className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105 text-lg px-8 py-4"
+                  data-testid="button-start-journey"
+                >
+                  <Rocket className="w-5 h-5 mr-2" />
+                  Start Your Journey Today
+                </Button>
+              </SignUpButton>
               <Button 
                 size="lg" 
                 variant="outline" 

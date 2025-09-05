@@ -1,18 +1,43 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertCourseSchema, insertModuleSchema, insertLessonSchema, insertEnrollmentSchema, insertAssessmentSchema, insertForumPostSchema } from "@shared/schema";
+import { setupClerkAuth, requireAuth, withAuth, getCurrentUser } from "./clerk-auth";
+import { ScormIntegration } from "./scorm-integration";
+import { initializeScormCategory } from "./init-scorm";
+import { insertCourseSchema, insertModuleSchema, insertLessonSchema, insertEnrollmentSchema } from "@shared/schema";
 import { z } from "zod";
+import * as path from "path";
+import express from "express";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize SCORM integration
+  const scormIntegration = new ScormIntegration();
+  
+  // Serve static SCORM content
+  app.use('/scorm-courses', express.static(path.join(__dirname, 'public', 'scorm-courses')));
+  
   // Auth middleware
-  await setupAuth(app);
+  await setupClerkAuth(app);
+
+  // Initialize SCORM category and courses
+  try {
+    await initializeScormCategory();
+    await scormIntegration.initializeScormCourses();
+  } catch (error) {
+    console.error('Failed to initialize SCORM system:', error);
+  }
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -45,7 +70,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/courses', isAuthenticated, async (req: any, res) => {
+  app.post('/api/courses', requireAuth, async (req: any, res) => {
     try {
       const courseData = insertCourseSchema.parse(req.body);
       const userId = req.user.claims.sub;
@@ -80,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/courses/:courseId/modules', isAuthenticated, async (req: any, res) => {
+  app.post('/api/courses/:courseId/modules', requireAuth, async (req: any, res) => {
     try {
       const moduleData = insertModuleSchema.parse(req.body);
       const userId = req.user.claims.sub;
@@ -116,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/modules/:moduleId/lessons', isAuthenticated, async (req: any, res) => {
+  app.post('/api/modules/:moduleId/lessons', requireAuth, async (req: any, res) => {
     try {
       const lessonData = insertLessonSchema.parse(req.body);
       const userId = req.user.claims.sub;
@@ -138,20 +163,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enrollment routes
-  app.post('/api/enrollments', isAuthenticated, async (req: any, res) => {
+  app.post('/api/enrollments', requireAuth, async (req: any, res) => {
     try {
-      const enrollmentData = insertEnrollmentSchema.parse(req.body);
+      // Accept only courseId from the client and attach the authed userId
+      const { courseId } = z.object({ courseId: z.string() }).parse(req.body);
       const userId = req.user.claims.sub;
-      
+
       // Check if already enrolled
-      const existingEnrollment = await storage.getEnrollment(userId, enrollmentData.courseId);
+      const existingEnrollment = await storage.getEnrollment(userId, courseId);
       if (existingEnrollment) {
-        return res.status(409).json({ message: "Already enrolled in this course" });
+        return res.status(200).json(existingEnrollment);
       }
 
       const enrollment = await storage.enrollUser({
-        ...enrollmentData,
         userId,
+        courseId,
+        progress: 0,
       });
       res.status(201).json(enrollment);
     } catch (error) {
@@ -164,11 +191,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/enrollments/my', isAuthenticated, async (req: any, res) => {
+  app.get('/api/enrollments/my', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const enrollments = await storage.getEnrollmentsByUser(userId);
-      res.json(enrollments);
+
+      // Enrich enrollment records with course details for the dashboard
+      const detailed = await Promise.all(
+        enrollments.map(async (e) => {
+          const course = await storage.getCourse(e.courseId);
+          return {
+            id: e.courseId,
+            title: course?.title ?? 'Course',
+            description: course?.description ?? '',
+            imageUrl: (course as any)?.imageUrl ?? undefined,
+            progress: Number(e.progress ?? 0),
+            completed: Number(e.progress ?? 0) >= 100 || !!e.completedAt,
+            enrolledAt: e.enrolledAt,
+            lastAccessed: e.completedAt ?? e.enrolledAt,
+          };
+        })
+      );
+
+      res.json(detailed);
     } catch (error) {
       console.error("Error fetching enrollments:", error);
       res.status(500).json({ message: "Failed to fetch enrollments" });
@@ -176,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Progress tracking routes
-  app.post('/api/lessons/:lessonId/progress', isAuthenticated, async (req: any, res) => {
+  app.post('/api/lessons/:lessonId/progress', requireAuth, async (req: any, res) => {
     try {
       const { completed, timeSpent } = req.body;
       const userId = req.user.claims.sub;
@@ -189,7 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/courses/:courseId/progress', isAuthenticated, async (req: any, res) => {
+  app.get('/api/courses/:courseId/progress', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const stats = await storage.getCourseProgressStats(userId, req.params.courseId);
@@ -201,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard routes
-  app.get('/api/dashboard/student', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/student', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const stats = await storage.getDashboardStats(userId);
@@ -212,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/dashboard/instructor', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/instructor', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -229,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/dashboard/admin', isAuthenticated, async (req: any, res) => {
+  app.get('/api/dashboard/admin', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -278,24 +323,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/courses/:courseId/forum', isAuthenticated, async (req: any, res) => {
+  app.post('/api/courses/:courseId/forum', requireAuth, async (req: any, res) => {
     try {
-      const postData = insertForumPostSchema.parse(req.body);
+      const { title, content, parentId } = req.body;
       const userId = req.user.claims.sub;
       
       const post = await storage.createForumPost({
-        ...postData,
+        title,
+        content,
+        parentId,
         courseId: req.params.courseId,
         userId,
       });
       res.status(201).json(post);
     } catch (error) {
       console.error("Error creating forum post:", error);
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Validation error", errors: error.errors });
-      } else {
-        res.status(500).json({ message: "Failed to create forum post" });
-      }
+      res.status(500).json({ message: "Failed to create forum post" });
     }
   });
 
@@ -310,7 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/achievements/my', isAuthenticated, async (req: any, res) => {
+  app.get('/api/achievements/my', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userAchievements = await storage.getUserAchievements(userId);
@@ -321,6 +364,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // Removed duplicate enrollment endpoints to avoid confusion. Use
+  // POST /api/enrollments and GET /api/enrollments/my instead.
+
+  // SCORM API endpoints
+  app.post('/api/scorm/launch', requireAuth, async (req, res) => {
+    const { courseId, launchUrl } = req.body;
+    console.log(`SCORM course launched: ${courseId} at ${launchUrl}`);
+    res.json({ success: true });
+  });
+
+  app.post('/api/scorm/close', requireAuth, async (req: any, res) => {
+    try {
+      const { courseId } = req.body;
+      const userId = req.user?.claims?.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      console.log(`User ${userId} closed SCORM course ${courseId}`);
+      res.json({ success: true, message: "SCORM course closed" });
+    } catch (error) {
+      console.error("Error closing SCORM course:", error);
+      res.status(500).json({ message: "Failed to close SCORM course" });
+    }
+  });
+
+  // Get available SCORM courses
+  app.get('/api/scorm/courses', async (req, res) => {
+    try {
+      const scormCourses = await scormIntegration.getScormCoursesList();
+      res.json(scormCourses);
+    } catch (error) {
+      console.error("Error fetching SCORM courses:", error);
+      res.status(500).json({ message: "Failed to fetch SCORM courses" });
+    }
+  });
+
+  const server = createServer(app);
+  return server;
 }
