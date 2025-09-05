@@ -25,15 +25,15 @@ import {
 export default function StudentDashboard() {
   const { user } = useAuth();
   
-  const { data: stats = {}, isLoading: statsLoading } = useQuery({
+  const { data: stats = {}, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/dashboard/student'],
   });
 
-  const { data: enrollments = [], isLoading: enrollmentsLoading } = useQuery({
+  const { data: enrollments = [], isLoading: enrollmentsLoading } = useQuery<any[]>({
     queryKey: ['/api/enrollments/my'],
   });
 
-  const { data: achievements = [], isLoading: achievementsLoading } = useQuery({
+  const { data: achievements = [], isLoading: achievementsLoading } = useQuery<any[]>({
     queryKey: ['/api/achievements/my'],
   });
 
@@ -76,7 +76,7 @@ export default function StudentDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-display font-bold text-foreground mb-2">
-            Welcome back, {user?.firstName}!
+            Welcome back, {(user as any)?.firstName}!
           </h1>
           <p className="text-muted-foreground text-lg">
             Track your progress and continue your sports leadership journey

@@ -266,7 +266,7 @@ export class DatabaseStorage implements IStorage {
         .set({
           completed,
           completedAt: completed ? new Date() : null,
-          timeSpent: existingProgress.timeSpent + timeSpent,
+          timeSpent: (existingProgress.timeSpent || 0) + timeSpent,
         })
         .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)))
         .returning();

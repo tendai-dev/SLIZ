@@ -10,15 +10,15 @@ import { Link } from 'wouter';
 export default function Home() {
   const { user } = useAuth();
   
-  const { data: courses = [], isLoading: coursesLoading } = useQuery({
+  const { data: courses = [], isLoading: coursesLoading } = useQuery<any[]>({
     queryKey: ['/api/courses'],
   });
 
-  const { data: enrollments = [], isLoading: enrollmentsLoading } = useQuery({
+  const { data: enrollments = [], isLoading: enrollmentsLoading } = useQuery<any[]>({
     queryKey: ['/api/enrollments/my'],
   });
 
-  const { data: stats = {}, isLoading: statsLoading } = useQuery({
+  const { data: stats = {}, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/dashboard/student'],
   });
 
@@ -46,7 +46,7 @@ export default function Home() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-4xl font-display font-bold text-foreground mb-2">
-            Welcome back, {user?.firstName || 'Student'}!
+            Welcome back, {(user as any)?.firstName || 'Student'}!
           </h1>
           <p className="text-muted-foreground text-lg">
             Continue your journey to sports leadership excellence
@@ -182,7 +182,7 @@ export default function Home() {
                     My Progress
                   </Button>
                 </Link>
-                {user?.role === 'instructor' && (
+                {(user as any)?.role === 'instructor' && (
                   <Link href="/dashboard/instructor">
                     <Button variant="outline" className="w-full justify-start" data-testid="button-instructor-dashboard">
                       <Award className="w-4 h-4 mr-2" />
@@ -190,7 +190,7 @@ export default function Home() {
                     </Button>
                   </Link>
                 )}
-                {user?.role === 'admin' && (
+                {(user as any)?.role === 'admin' && (
                   <Link href="/dashboard/admin">
                     <Button variant="outline" className="w-full justify-start" data-testid="button-admin-dashboard">
                       <Award className="w-4 h-4 mr-2" />

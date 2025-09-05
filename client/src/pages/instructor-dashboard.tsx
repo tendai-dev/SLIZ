@@ -33,7 +33,7 @@ export default function InstructorDashboard() {
 
   // Redirect if not instructor
   useEffect(() => {
-    if (user && user.role !== 'instructor' && user.role !== 'admin') {
+    if (user && (user as any).role !== 'instructor' && (user as any).role !== 'admin') {
       toast({
         title: "Access Denied",
         description: "You don't have permission to access the instructor dashboard.",
@@ -43,7 +43,7 @@ export default function InstructorDashboard() {
     }
   }, [user, toast]);
 
-  const { data: stats = {}, isLoading: statsLoading } = useQuery({
+  const { data: stats = {}, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/dashboard/instructor'],
     retry: (failureCount, error) => {
       if (isUnauthorizedError(error as Error)) {
@@ -61,9 +61,9 @@ export default function InstructorDashboard() {
     },
   });
 
-  const { data: myCourses = [], isLoading: coursesLoading } = useQuery({
-    queryKey: ['/api/courses/instructor', user?.id],
-    enabled: !!user?.id,
+  const { data: myCourses = [], isLoading: coursesLoading } = useQuery<any[]>({
+    queryKey: ['/api/courses/instructor', (user as any)?.id],
+    enabled: !!(user as any)?.id,
   });
 
   const createCourseMutation = useMutation({
@@ -127,7 +127,7 @@ export default function InstructorDashboard() {
     );
   }
 
-  if (!user || (user.role !== 'instructor' && user.role !== 'admin')) {
+  if (!user || ((user as any).role !== 'instructor' && (user as any).role !== 'admin')) {
     return null;
   }
 

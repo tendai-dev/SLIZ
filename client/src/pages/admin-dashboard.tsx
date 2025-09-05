@@ -36,7 +36,7 @@ export default function AdminDashboard() {
 
   // Redirect if not admin
   useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (user && (user as any).role !== 'admin') {
       toast({
         title: "Access Denied",
         description: "You don't have permission to access the admin dashboard.",
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
     }
   }, [user, toast]);
 
-  const { data: stats = {}, isLoading: statsLoading } = useQuery({
+  const { data: stats = {}, isLoading: statsLoading } = useQuery<any>({
     queryKey: ['/api/dashboard/admin'],
     retry: (failureCount, error) => {
       if (isUnauthorizedError(error as Error)) {
@@ -64,7 +64,7 @@ export default function AdminDashboard() {
     },
   });
 
-  const { data: courses = [], isLoading: coursesLoading } = useQuery({
+  const { data: courses = [], isLoading: coursesLoading } = useQuery<any[]>({
     queryKey: ['/api/courses'],
   });
 
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!user || user.role !== 'admin') {
+  if (!user || (user as any).role !== 'admin') {
     return null;
   }
 

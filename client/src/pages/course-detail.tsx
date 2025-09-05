@@ -31,12 +31,12 @@ export default function CourseDetail() {
   const queryClient = useQueryClient();
   const courseId = params?.id;
 
-  const { data: course, isLoading: courseLoading } = useQuery({
+  const { data: course, isLoading: courseLoading } = useQuery<any>({
     queryKey: ['/api/courses', courseId],
     enabled: !!courseId,
   });
 
-  const { data: modules = [], isLoading: modulesLoading } = useQuery({
+  const { data: modules = [], isLoading: modulesLoading } = useQuery<any[]>({
     queryKey: ['/api/courses', courseId, 'modules'],
     enabled: !!courseId,
   });
@@ -47,12 +47,12 @@ export default function CourseDetail() {
     select: (data: any[]) => data.find(e => e.courseId === courseId),
   });
 
-  const { data: progressStats } = useQuery({
+  const { data: progressStats } = useQuery<any>({
     queryKey: ['/api/courses', courseId, 'progress'],
     enabled: !!user && !!enrollment,
   });
 
-  const { data: forumPosts = [] } = useQuery({
+  const { data: forumPosts = [] } = useQuery<any[]>({
     queryKey: ['/api/courses', courseId, 'forum'],
     enabled: !!courseId,
   });
