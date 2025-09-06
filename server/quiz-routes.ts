@@ -24,11 +24,11 @@ router.get('/api/quiz/:courseId', async (req, res) => {
 });
 
 // Submit quiz attempt
-router.post('/api/quiz/:courseId/submit', async (req, res) => {
+router.post('/api/quiz/:courseId/submit', async (req: any, res) => {
   try {
     const { courseId } = req.params;
     const { answers, timeSpent } = req.body;
-    const userId = req.user?.id || 'dev-user-1';
+    const userId = req.auth?.userId || 'dev-user-1';
     
     // Get correct answers
     const questions = await storage.getQuizQuestions(courseId);
@@ -103,9 +103,9 @@ router.post('/api/quiz/:courseId/submit', async (req, res) => {
 });
 
 // Get user's quiz attempts
-router.get('/api/quiz-attempts', async (req, res) => {
+router.get('/api/quiz-attempts', async (req: any, res) => {
   try {
-    const userId = req.user?.id || 'dev-user-1';
+    const userId = req.auth?.userId || 'dev-user-1';
     const attempts = await storage.getUserQuizAttempts(userId);
     res.json(attempts);
   } catch (error) {
@@ -115,9 +115,9 @@ router.get('/api/quiz-attempts', async (req, res) => {
 });
 
 // Get user's badges
-router.get('/api/badges', async (req, res) => {
+router.get('/api/badges', async (req: any, res) => {
   try {
-    const userId = req.user?.id || 'dev-user-1';
+    const userId = req.auth?.userId || 'dev-user-1';
     const badges = await storage.getUserBadges(userId);
     
     // Add badge metadata
@@ -137,9 +137,9 @@ router.get('/api/badges', async (req, res) => {
 });
 
 // Get user's certificates
-router.get('/api/certificates', async (req, res) => {
+router.get('/api/certificates', async (req: any, res) => {
   try {
-    const userId = req.user?.id || 'dev-user-1';
+    const userId = req.auth?.userId || 'dev-user-1';
     const certificates = await storage.getUserCertificates(userId);
     res.json(certificates);
   } catch (error) {

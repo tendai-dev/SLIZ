@@ -109,11 +109,7 @@ export default function CourseDetail() {
   if (!course) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation 
-          isAuthenticated={!!user}
-          user={user}
-          onSignOut={handleSignOut}
-        />
+        <Navigation />
         <div className="container mx-auto px-6 py-20 mt-20 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">Course Not Found</h1>
           <p className="text-muted-foreground">The course you're looking for doesn't exist.</p>

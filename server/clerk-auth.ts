@@ -1,4 +1,4 @@
-import { requireAuth as clerkRequireAuth, ClerkRequest } from '@clerk/express';
+import { requireAuth as clerkRequireAuth } from '@clerk/express';
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 
@@ -28,7 +28,7 @@ export async function setupClerkAuth(app: Express) {
   });
 
   // Auth routes
-  app.get('/api/auth/user', requireAuth, async (req: ClerkRequest, res) => {
+  app.get('/api/auth/user', requireAuth, async (req: any, res) => {
     try {
       const { userId } = req.auth;
       if (!userId) {
@@ -56,13 +56,13 @@ export async function setupClerkAuth(app: Express) {
 }
 
 // Middleware to require authentication
-export const requireAuth: RequestHandler = clerkRequireAuth();
+export const requireAuth: RequestHandler = (req: any, res, next) => { };
 
 // Middleware for optional authentication (for now, same as required)
 export const withAuth: RequestHandler = clerkRequireAuth();
 
 // Helper to get current user from request
-export async function getCurrentUser(req: ClerkRequest) {
+export async function getCurrentUser(req: any) {
   const { userId } = req.auth;
   if (!userId) return null;
   

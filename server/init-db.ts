@@ -5,7 +5,7 @@ export async function initializeDatabase() {
   
   try {
     // Create tables using Drizzle's SQL generation
-    await db.run(`CREATE TABLE IF NOT EXISTS users (
+    await db.execute(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
       email TEXT UNIQUE,
       first_name TEXT,
@@ -16,7 +16,7 @@ export async function initializeDatabase() {
       updated_at INTEGER DEFAULT (unixepoch()) NOT NULL
     )`);
 
-    await db.run(`CREATE TABLE IF NOT EXISTS courses (
+    await db.execute(`CREATE TABLE IF NOT EXISTS courses (
       id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
       title TEXT NOT NULL,
       description TEXT,
@@ -28,7 +28,7 @@ export async function initializeDatabase() {
       FOREIGN KEY (instructor_id) REFERENCES users(id)
     )`);
 
-    await db.run(`CREATE TABLE IF NOT EXISTS modules (
+    await db.execute(`CREATE TABLE IF NOT EXISTS modules (
       id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
       course_id TEXT NOT NULL,
       title TEXT NOT NULL,
@@ -39,7 +39,7 @@ export async function initializeDatabase() {
       FOREIGN KEY (course_id) REFERENCES courses(id)
     )`);
 
-    await db.run(`CREATE TABLE IF NOT EXISTS lessons (
+    await db.execute(`CREATE TABLE IF NOT EXISTS lessons (
       id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
       module_id TEXT NOT NULL,
       title TEXT NOT NULL,
@@ -52,7 +52,7 @@ export async function initializeDatabase() {
       FOREIGN KEY (module_id) REFERENCES modules(id)
     )`);
 
-    await db.run(`CREATE TABLE IF NOT EXISTS enrollments (
+    await db.execute(`CREATE TABLE IF NOT EXISTS enrollments (
       id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
       user_id TEXT NOT NULL,
       course_id TEXT NOT NULL,
@@ -63,7 +63,7 @@ export async function initializeDatabase() {
       UNIQUE(user_id, course_id)
     )`);
 
-    await db.run(`CREATE TABLE IF NOT EXISTS progress (
+    await db.execute(`CREATE TABLE IF NOT EXISTS progress (
       id TEXT PRIMARY KEY DEFAULT (hex(randomblob(16))),
       user_id TEXT NOT NULL,
       lesson_id TEXT NOT NULL,

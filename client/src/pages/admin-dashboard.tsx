@@ -117,11 +117,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation 
-        isAuthenticated={!!user}
-        user={user}
-        onSignOut={handleSignOut}
-      />
+      <Navigation />
       
       <div className="container mx-auto px-6 py-8 mt-20">
         {/* Header */}
