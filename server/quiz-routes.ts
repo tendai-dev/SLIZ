@@ -58,7 +58,11 @@ router.post('/api/quiz/:courseId/submit', async (req: any, res) => {
     let certificate = null;
     if (passed) {
       try {
-        // Award badge
+        // Get course details for badge
+        const course = await storage.getCourse(courseId);
+        const courseTitle = course?.title || 'Course';
+        
+        // Award badge from both SLIZ and WVU
         const badge = await storage.awardBadge(userId, courseId, attempt.id);
         console.log('Badge awarded:', badge);
         
@@ -66,7 +70,7 @@ router.post('/api/quiz/:courseId/submit', async (req: any, res) => {
         await storage.updateEnrollmentProgress(userId, courseId, 100);
         console.log('Course progress updated to 100% after quiz completion');
         
-        // Check certificate eligibility
+        // Check certificate eligibility (3 out of 4 courses)
         const eligibility = await storage.checkCertificateEligibility(userId);
         if (eligibility.eligible) {
           certificate = await storage.issueCertificate(userId);

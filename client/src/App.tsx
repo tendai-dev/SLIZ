@@ -11,7 +11,7 @@ import Home from "@/pages/home";
 import Courses from "@/pages/courses";
 import CourseDetail from "@/pages/course-detail";
 import Quiz from "@/pages/quiz";
-import Badges from "@/pages/badges";
+import { BadgesPage } from "@/pages/badges";
 import StudentDashboard from "@/pages/student-dashboard";
 import InstructorDashboard from "@/pages/instructor-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";

@@ -199,6 +199,17 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async enrollUser(enrollment: InsertEnrollment): Promise<Enrollment> {
+    const enrollmentData = {
+      id: enrollment.id || `enrollment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: enrollment.userId,
+      courseId: enrollment.courseId,
+      enrolledAt: new Date(),
+      progress: enrollment.progress || 0,
+    };
+    return this.createEnrollment(enrollmentData);
+  }
+
   async getEnrollmentsByUser(userId: string): Promise<Enrollment[]> {
     return db.select().from(enrollments).where(eq(enrollments.userId, userId)).orderBy(desc(enrollments.enrolledAt));
   }
@@ -247,6 +258,76 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quiz and Badge methods
+  async checkCertificateEligibility(userId: string): Promise<{ eligible: boolean; coursesCompleted: number; totalCourses: number }> {
+    // Get all quiz attempts for the user with passing scores (80%+)
+    const passingAttempts = await db
+      .select({
+        courseId: quizAttempts.courseId,
+        score: quizAttempts.score
+      })
+      .from(quizAttempts)
+      .where(and(
+        eq(quizAttempts.userId, userId),
+        sql`${quizAttempts.score} >= 80`
+      ))
+      .groupBy(quizAttempts.courseId)
+      .having(sql`MAX(${quizAttempts.score}) >= 80`);
+
+    const coursesCompleted = passingAttempts.length;
+    const totalCourses = 4; // We have 4 SCORM courses
+    
+    return {
+      eligible: coursesCompleted >= 3, // Need 3 out of 4 courses
+      coursesCompleted,
+      totalCourses
+    };
+  }
+
+  async issueCertificate(userId: string): Promise<any> {
+    // Check if certificate already exists
+    const existingCertificate = await db
+      .select()
+      .from(courseCertificates)
+      .where(eq(courseCertificates.userId, userId))
+      .limit(1);
+
+    if (existingCertificate.length > 0) {
+      return existingCertificate[0];
+    }
+
+    // Get completed courses for certificate
+    const completedCourses = await db
+      .select({
+        courseId: quizAttempts.courseId,
+        courseTitle: courses.title,
+        score: sql`MAX(${quizAttempts.score})`.as('maxScore')
+      })
+      .from(quizAttempts)
+      .innerJoin(courses, eq(quizAttempts.courseId, courses.id))
+      .where(and(
+        eq(quizAttempts.userId, userId),
+        sql`${quizAttempts.score} >= 80`
+      ))
+      .groupBy(quizAttempts.courseId, courses.title)
+      .having(sql`MAX(${quizAttempts.score}) >= 80`);
+
+    // Calculate average score
+    const totalScore = completedCourses.reduce((sum, course) => sum + Number(course.score), 0);
+    const averageScore = totalScore / completedCourses.length;
+
+    // Issue certificate
+    const certificateId = `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const certificate = {
+      id: certificateId,
+      userId,
+      coursesCompleted: completedCourses.map(c => c.courseTitle).join(', '),
+      averageScore: Math.round(averageScore),
+      issuedAt: new Date()
+    };
+
+    const [result] = await db.insert(courseCertificates).values(certificate).returning();
+    return result;
+  }
   async getQuizQuestions(courseId: string): Promise<any[]> {
     // Import quiz questions dynamically
     const { quizQuestions } = await import('./quiz-data.js');
@@ -307,52 +388,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userBadges.userId, userId));
   }
 
-  async checkCertificateEligibility(userId: string): Promise<{ eligible: boolean; coursesCompleted: string[]; totalScore: number }> {
-    const badges = await this.getUserBadges(userId);
-    const coursesCompleted = badges.map(b => b.badgeId.replace('badge_', ''));
-    
-    // Calculate average score from quiz attempts
-    const attempts = await this.getUserQuizAttempts(userId);
-    const passedAttempts = attempts.filter(a => a.passed);
-    const totalScore = passedAttempts.length > 0 
-      ? passedAttempts.reduce((sum, a) => sum + a.score, 0) / passedAttempts.length 
-      : 0;
-
-    return {
-      eligible: coursesCompleted.length >= 3, // Need 3 out of 4 courses
-      coursesCompleted,
-      totalScore
-    };
-  }
-
-  async issueCertificate(userId: string): Promise<any> {
-    const eligibility = await this.checkCertificateEligibility(userId);
-    
-    if (!eligibility.eligible) {
-      throw new Error('User not eligible for certificate');
-    }
-
-    const result = await db
-      .insert(courseCertificates)
-      .values({
-        id: `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        userId,
-        coursesCompleted: JSON.stringify(eligibility.coursesCompleted),
-        averageScore: eligibility.totalScore
-      })
-      .returning();
-    
-    return result[0];
-  }
-
   async getUserCertificates(userId: string): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        id: courseCertificates.id,
+        userId: courseCertificates.userId,
+        coursesCompleted: courseCertificates.coursesCompleted,
+        averageScore: courseCertificates.averageScore
+      })
       .from(courseCertificates)
       .where(eq(courseCertificates.userId, userId));
   }
-
-  // Progress tracking
   async updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<Progress> {
     const [existingProgress] = await db
       .select()
