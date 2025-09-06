@@ -10,6 +10,8 @@ import Dashboard from "@/pages/dashboard";
 import Home from "@/pages/home";
 import Courses from "@/pages/courses";
 import CourseDetail from "@/pages/course-detail";
+import Quiz from "@/pages/quiz";
+import Badges from "@/pages/badges";
 import StudentDashboard from "@/pages/student-dashboard";
 import InstructorDashboard from "@/pages/instructor-dashboard";
 import AdminDashboard from "@/pages/admin-dashboard";
@@ -37,6 +39,8 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/courses" component={Courses} />
           <Route path="/courses/:id" component={CourseDetail} />
+          <Route path="/quiz/:courseId" component={Quiz} />
+          <Route path="/badges" component={Badges} />
           <Route path="/dashboard/student" component={StudentDashboard} />
           <Route path="/dashboard/instructor" component={InstructorDashboard} />
           <Route path="/dashboard/admin" component={AdminDashboard} />

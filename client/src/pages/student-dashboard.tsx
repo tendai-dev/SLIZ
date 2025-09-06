@@ -33,6 +33,10 @@ export default function StudentDashboard() {
     queryKey: ['/api/enrollments/my'],
   });
 
+  const { data: courses = [], isLoading: coursesLoading } = useQuery<any[]>({
+    queryKey: ['/api/courses'],
+  });
+
   const { data: achievements = [], isLoading: achievementsLoading } = useQuery<any[]>({
     queryKey: ['/api/achievements/my'],
   });
@@ -41,7 +45,7 @@ export default function StudentDashboard() {
     window.location.href = '/api/logout';
   };
 
-  if (statsLoading || enrollmentsLoading || achievementsLoading) {
+  if (statsLoading || enrollmentsLoading || achievementsLoading || coursesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
@@ -67,9 +71,6 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
-        isAuthenticated={!!user}
-        user={user}
-        onSignOut={handleSignOut}
       />
       
       <div className="container mx-auto px-6 py-8 mt-20">
@@ -164,34 +165,62 @@ export default function StudentDashboard() {
               <CardContent>
                 {enrollments.length > 0 ? (
                   <div className="space-y-4">
-                    {enrollments.slice(0, 3).map((enrollment: any) => (
-                      <div key={enrollment.id} className="flex items-center space-x-4 p-4 glass-card rounded-xl hover:bg-primary/5 transition-colors cursor-pointer">
-                        <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-                          <Trophy className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="font-semibold" data-testid={`course-title-${enrollment.id}`}>
-                            Sports Leadership Course
-                          </h5>
-                          <p className="text-sm text-muted-foreground">
-                            Module 3: Strategic Planning
-                          </p>
-                          <div className="flex items-center space-x-2 mt-2">
-                            <Progress 
-                              value={Math.round(parseFloat(enrollment.progress) || 0)} 
-                              className="w-32" 
-                            />
-                            <span className="text-xs text-primary font-semibold">
-                              {Math.round(parseFloat(enrollment.progress) || 0)}%
-                            </span>
+                    {enrollments.slice(0, 3).map((enrollment: any) => {
+                      // Find the corresponding SCORM course
+                      const course = courses.find(c => c.id === enrollment.courseId);
+                      const isScormCourse = course?.id?.includes('scorm');
+                      
+                      return (
+                        <div key={enrollment.id} className="flex items-center space-x-4 p-4 glass-card rounded-xl hover:bg-primary/5 transition-colors cursor-pointer">
+                          <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+                            {enrollment.progress >= 100 ? (
+                              <CheckCircle2 className="w-6 h-6 text-white" />
+                            ) : (
+                              <PlayCircle className="w-6 h-6 text-white" />
+                            )}
                           </div>
+                          <div className="flex-1">
+                            <h5 className="font-semibold" data-testid={`course-title-${enrollment.id}`}>
+                              {course?.title || 'SCORM Course'}
+                            </h5>
+                            <p className="text-sm text-muted-foreground">
+                              {isScormCourse ? 'Interactive SCORM Content' : 'Traditional Course Content'}
+                            </p>
+                            <div className="flex items-center space-x-2 mt-2">
+                              <Progress 
+                                value={Math.round(parseFloat(enrollment.progress) || 0)} 
+                                className="w-32" 
+                              />
+                              <span className="text-xs text-primary font-semibold">
+                                {Math.round(parseFloat(enrollment.progress) || 0)}%
+                              </span>
+                              {enrollment.progress >= 100 && (
+                                <Badge className="bg-primary/10 text-primary text-xs">
+                                  Completed
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            className="bg-primary/10 text-primary hover:bg-primary/20"
+                            onClick={() => window.location.href = `/courses/${enrollment.courseId}`}
+                          >
+                            {enrollment.progress >= 100 ? (
+                              <>
+                                <Trophy className="w-4 h-4 mr-2" />
+                                Take Quiz
+                              </>
+                            ) : (
+                              <>
+                                <PlayCircle className="w-4 h-4 mr-2" />
+                                Continue
+                              </>
+                            )}
+                          </Button>
                         </div>
-                        <Button size="sm" className="bg-primary/10 text-primary hover:bg-primary/20">
-                          <PlayCircle className="w-4 h-4 mr-2" />
-                          Continue
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8">

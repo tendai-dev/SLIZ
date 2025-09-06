@@ -134,9 +134,6 @@ export default function InstructorDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
-        isAuthenticated={!!user}
-        user={user}
-        onSignOut={handleSignOut}
       />
       
       <div className="container mx-auto px-6 py-8 mt-20">

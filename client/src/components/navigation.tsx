@@ -90,6 +90,16 @@ export function Navigation() {
                         <span className="w-full cursor-pointer" data-testid="menu-dashboard">Dashboard</span>
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/courses">
+                        <span className="w-full cursor-pointer">Courses</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/badges">
+                        <span className="w-full cursor-pointer">Badges & Certificates</span>
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <SignOutButton>
                       <DropdownMenuItem data-testid="menu-sign-out">

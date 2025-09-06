@@ -194,13 +194,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enrollment operations
-  async enrollUser(enrollment: InsertEnrollment): Promise<Enrollment> {
-    const enrollmentWithId = {
-      ...enrollment,
-      id: enrollment.id || `enroll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    };
-    const [newEnrollment] = await db.insert(enrollments).values(enrollmentWithId).returning();
-    return newEnrollment;
+  async createEnrollment(enrollmentData: any): Promise<Enrollment> {
+    const [result] = await db.insert(enrollments).values(enrollmentData).returning();
+    return result;
   }
 
   async getEnrollmentsByUser(userId: string): Promise<Enrollment[]> {
@@ -219,13 +215,28 @@ export class DatabaseStorage implements IStorage {
     return enrollment;
   }
 
-  async updateEnrollmentProgress(userId: string, courseId: string, progress: number): Promise<any> {
+  async updateEnrollmentProgress(userId: string, courseId: string, progress: number, scormData?: any, currentLocation?: string, suspendData?: string): Promise<any> {
+    const updateData: any = { 
+      progress,
+      completedAt: progress >= 100 ? new Date() : null,
+      lastAccessedAt: new Date()
+    };
+    
+    if (scormData) {
+      updateData.scormData = scormData;
+    }
+    
+    if (currentLocation) {
+      updateData.currentLocation = currentLocation;
+    }
+    
+    if (suspendData) {
+      updateData.suspendData = suspendData;
+    }
+    
     const result = await db
       .update(enrollments)
-      .set({ 
-        progress,
-        completedAt: progress >= 100 ? new Date() : null
-      })
+      .set(updateData)
       .where(and(
         eq(enrollments.userId, userId),
         eq(enrollments.courseId, courseId)
@@ -383,7 +394,7 @@ export class DatabaseStorage implements IStorage {
     return progressRecord;
   }
 
-  async getCourseProgressStats(userId: string, courseId: string): Promise<{ completedLessons: number; totalLessons: number; totalTimeSpent: number }> {
+  async getCourseProgressStats(userId: string, courseId: string): Promise<{ completedLessons: number; totalLessons: number; totalTimeSpent: number; enrollmentProgress: number; quizCompleted: boolean }> {
     const result = await db
       .select({
         completedLessons: count(sql`CASE WHEN ${progress.completed} = true THEN 1 END`),
@@ -395,10 +406,20 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(progress, and(eq(progress.lessonId, lessons.id), eq(progress.userId, userId)))
       .where(eq(modules.courseId, courseId));
 
+    // Get enrollment progress
+    const enrollment = await this.getEnrollment(userId, courseId);
+    const enrollmentProgress = enrollment?.progress || 0;
+
+    // Check if quiz has been completed with passing score
+    const quizAttempts = await this.getUserQuizAttempts(userId, courseId);
+    const quizCompleted = quizAttempts.some(attempt => attempt.passed);
+
     return {
       completedLessons: Number(result[0]?.completedLessons || 0),
       totalLessons: Number(result[0]?.totalLessons || 0),
       totalTimeSpent: Number(result[0]?.totalTimeSpent || 0),
+      enrollmentProgress,
+      quizCompleted,
     };
   }
 

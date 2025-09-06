@@ -23,16 +23,25 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
   // Load saved progress when opening course
   useEffect(() => {
     if (isOpen && user) {
-      // Fetch existing progress
+      // Fetch existing progress and SCORM state
       fetch(`/api/enrollments/my`)
         .then(res => res.json())
         .then(enrollments => {
           const enrollment = enrollments.find((e: any) => e.courseId === courseId);
           if (enrollment) {
             setProgress(enrollment.progress || 0);
-            // Load saved SCORM data if available
+            // Restore saved SCORM data to resume where user left off
             if (enrollment.scormData) {
               setScormData(enrollment.scormData);
+              console.log('Restored SCORM data:', enrollment.scormData);
+            }
+            // Restore current location for SCORM navigation
+            if (enrollment.currentLocation) {
+              console.log('Restored location:', enrollment.currentLocation);
+            }
+            // Restore suspend data for detailed state
+            if (enrollment.suspendData) {
+              console.log('Restored suspend data:', enrollment.suspendData);
             }
           }
         })
@@ -73,7 +82,16 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
         },
         LMSSetValue: (key: string, value: string) => {
           console.log('SCORM: LMSSetValue', key, value);
-          setScormData((prev: any) => ({ ...prev, [key]: value }));
+          setScormData((prev: any) => {
+            const newData = { ...prev, [key]: value };
+            
+            // Auto-save progress on important SCORM data changes
+            if (key.includes('lesson_status') || key.includes('score') || key.includes('location') || key.includes('suspend_data')) {
+              setTimeout(() => handleSaveProgress(newData), 100);
+            }
+            
+            return newData;
+          });
           
           // Track progress based on SCORM data
           if (key === 'cmi.core.lesson_status' && value === 'completed') {
@@ -82,6 +100,11 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
             const score = parseInt(value);
             if (!isNaN(score)) {
               setProgress(score);
+            }
+          } else if (key.includes('progress_measure')) {
+            const progressValue = parseFloat(value) * 100;
+            if (!isNaN(progressValue)) {
+              setProgress(Math.round(progressValue));
             }
           }
           return 'true';
@@ -108,7 +131,13 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
     };
   }, [isOpen, scormData, courseId]);
 
-  const handleSaveProgress = () => {
+  const handleSaveProgress = (currentScormData?: any) => {
+    const dataToSave = currentScormData || scormData;
+    
+    // Extract important SCORM fields for persistence
+    const currentLocation = dataToSave['cmi.core.lesson_location'] || dataToSave['cmi.location'] || '';
+    const suspendData = dataToSave['cmi.suspend_data'] || '';
+    
     // Save current progress and SCORM data to server
     fetch('/api/scorm/progress', {
       method: 'POST',
@@ -118,7 +147,9 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
       body: JSON.stringify({
         courseId,
         progress,
-        scormData,
+        scormData: dataToSave,
+        currentLocation,
+        suspendData,
         completed: progress >= 100,
       }),
     }).catch(console.error);

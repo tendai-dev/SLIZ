@@ -409,29 +409,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // SCORM Progress tracking
-  app.post('/api/scorm/progress', requireAuth, async (req: any, res) => {
+  app.post('/api/scorm/progress', requireAuth, async (req, res) => {
     try {
-      const { courseId, progress, completed, scormData } = req.body;
-      const userId = req.auth?.userId || 'dev-user-1';
-      
-      console.log(`Updating progress for user ${userId} in course ${courseId}: ${progress}%`);
-      
-      // Update enrollment progress with SCORM data
-      const updatedEnrollment = await storage.updateEnrollmentProgress(userId, courseId, progress);
-      
-      // Store SCORM data separately if needed (you might want to add a scormData column to enrollments table)
-      if (scormData) {
-        // For now, we'll just log it - in production you'd save this to database
-        console.log('SCORM Data:', JSON.stringify(scormData));
+      const { courseId, progress, scormData, completed, currentLocation, suspendData } = req.body;
+      const userId = req.auth.userId;
+
+      // Ensure enrollment exists
+      let enrollment = await storage.getEnrollment(userId, courseId);
+      if (!enrollment) {
+        enrollment = await storage.createEnrollment({
+          id: `enrollment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId,
+          courseId,
+          progress: 0,
+        });
       }
-      
-      res.json({ 
-        success: true, 
-        enrollment: updatedEnrollment 
-      });
+
+      // Update enrollment progress with detailed SCORM data
+      const updatedEnrollment = await storage.updateEnrollmentProgress(
+        userId, 
+        courseId, 
+        progress, 
+        scormData, 
+        currentLocation, 
+        suspendData
+      );
+
+      res.json({ success: true, progress, scormData, currentLocation, suspendData });
     } catch (error) {
-      console.error("Error updating SCORM progress:", error);
-      res.status(500).json({ message: "Failed to update progress" });
+      console.error('Error updating SCORM progress:', error);
+      res.status(500).json({ error: 'Failed to update progress' });
     }
   });
 

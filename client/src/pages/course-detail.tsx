@@ -21,7 +21,11 @@ import {
   Circle,
   MessageCircle,
   Award,
-  Calendar
+  Calendar,
+  Trophy,
+  Medal,
+  Video,
+  Rocket
 } from 'lucide-react';
 
 export default function CourseDetail() {
@@ -120,11 +124,7 @@ export default function CourseDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation 
-        isAuthenticated={!!user}
-        user={user}
-        onSignOut={handleSignOut}
-      />
+      <Navigation />
       
       <div className="container mx-auto px-6 py-8 mt-20">
         {/* Course Header */}
@@ -199,26 +199,58 @@ export default function CourseDetail() {
                     </div>
                     
                     {progressStats && (
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                        <div className="text-center">
-                          <div className="text-xl font-semibold text-accent" data-testid="completed-lessons">
-                            {progressStats.completedLessons}
+                      <div className="space-y-4 mb-6">
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div className="text-center">
+                            <div className="text-xl font-semibold text-primary" data-testid="completion-rate">
+                              {progressStats.enrollmentProgress}%
+                            </div>
+                            <div className="text-xs text-muted-foreground">Course Progress</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Lessons Done</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xl font-semibold text-primary" data-testid="study-time">
-                            {Math.round(progressStats.totalTimeSpent / 60)}h
+                          <div className="text-center">
+                            <div className="text-xl font-semibold text-accent" data-testid="lessons-completed">
+                              {progressStats.completedLessons}/{progressStats.totalLessons}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Lessons</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Study Time</div>
+                          <div className="text-center">
+                            <div className="text-xl font-semibold text-primary" data-testid="study-time">
+                              {Math.round(progressStats.totalTimeSpent / 60)}h
+                            </div>
+                            <div className="text-xs text-muted-foreground">Study Time</div>
+                          </div>
                         </div>
+                        
+                        {progressStats.quizCompleted && (
+                          <div className="bg-primary/10 rounded-lg p-3 text-center">
+                            <div className="flex items-center justify-center space-x-2 text-primary">
+                              <Trophy className="w-4 h-4" />
+                              <span className="text-sm font-medium">Quiz Completed - Badge Earned!</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                     
-                    <Button className="w-full bg-gradient-to-r from-primary to-accent" data-testid="button-continue-course">
-                      <Play className="w-4 h-4 mr-2" />
-                      Continue Learning
-                    </Button>
+                    <div className="space-y-3">
+                      <Button 
+                        size="lg" 
+                        className="w-full bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Continue Learning
+                      </Button>
+                      <Button 
+                        size="lg" 
+                        variant="outline"
+                        className="w-full glass-card neon-border text-foreground font-semibold hover:shadow-lg transition-all"
+                        onClick={() => window.location.href = `/quiz/${courseId}`}
+                        disabled={progressStats?.quizCompleted}
+                      >
+                        <Trophy className="w-4 h-4 mr-2" />
+                        {progressStats?.quizCompleted ? 'Quiz Completed ✓' : 'Take Quiz & Earn Badge'}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4 text-center">

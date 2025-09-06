@@ -1,13 +1,13 @@
 import { sql, relations } from 'drizzle-orm';
 import {
-  index,
   pgTable,
   text,
   integer,
-  real,
-  timestamp,
-  uuid,
   boolean,
+  timestamp,
+  decimal,
+  json,
+  real,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -71,13 +71,17 @@ export const lessons = pgTable("lessons", {
 });
 
 // Course enrollments
-export const enrollments = pgTable("enrollments", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  courseId: text("course_id").notNull(),
-  enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
-  progress: real("progress").default(0),
+export const enrollments = pgTable('enrollments', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  courseId: text('course_id').notNull().references(() => courses.id),
+  enrolledAt: timestamp('enrolled_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+  progress: integer('progress').default(0).notNull(),
+  scormData: json('scorm_data'),
+  lastAccessedAt: timestamp('last_accessed_at').defaultNow(),
+  currentLocation: text('current_location'),
+  suspendData: text('suspend_data'),
 });
 
 // Lesson progress tracking

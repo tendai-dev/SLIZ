@@ -55,28 +55,25 @@ router.post('/api/quiz/:courseId/submit', async (req: any, res) => {
     });
     
     // Award badge if passed
+    let certificate = null;
     if (passed) {
       try {
-        await storage.awardBadge(userId, courseId, attempt.id);
-      } catch (badgeError) {
-        console.error('Error awarding badge:', badgeError);
-        // Continue even if badge fails
-      }
-    }
-    
-    // Check certificate eligibility
-    const eligibility = await storage.checkCertificateEligibility(userId);
-    let certificate = null;
-    
-    if (eligibility.eligible) {
-      try {
-        // Check if certificate already exists
-        const existingCertificates = await storage.getUserCertificates(userId);
-        if (existingCertificates.length === 0) {
+        // Award badge
+        const badge = await storage.awardBadge(userId, courseId, attempt.id);
+        console.log('Badge awarded:', badge);
+        
+        // Update course progress to 100% when quiz is passed
+        await storage.updateEnrollmentProgress(userId, courseId, 100);
+        console.log('Course progress updated to 100% after quiz completion');
+        
+        // Check certificate eligibility
+        const eligibility = await storage.checkCertificateEligibility(userId);
+        if (eligibility.eligible) {
           certificate = await storage.issueCertificate(userId);
+          console.log('Certificate issued:', certificate);
         }
-      } catch (certError) {
-        console.error('Error issuing certificate:', certError);
+      } catch (error) {
+        console.error('Error awarding badge or certificate:', error);
         // Continue even if certificate fails
       }
     }
