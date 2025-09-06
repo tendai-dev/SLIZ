@@ -4,22 +4,34 @@ import {
   modules,
   lessons,
   enrollments,
-  lessonProgress,
+  progress,
   categories,
+  questions,
+  assessments,
+  assessmentAttempts,
+  achievements,
+  userAchievements,
+  certificates,
+  forumPosts,
+  messages,
+  quizAttempts,
+  userBadges,
+  courseCertificates,
   type User,
   type UpsertUser,
   type Course,
   type Module,
   type Lesson,
   type Enrollment,
-  type LessonProgress,
+  type Progress,
   type InsertCourse,
   type InsertModule,
   type InsertLesson,
   type InsertEnrollment,
-} from "@shared/schema";
+} from "@shared/schema-postgres";
 import { db } from "./db";
-import { eq, desc, and, count, avg, sum, sql } from "drizzle-orm";
+import { eq, and, desc, sql, count, sum } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -55,34 +67,11 @@ export interface IStorage {
   updateEnrollmentProgress(userId: string, courseId: string, progress: number): Promise<Enrollment>;
   
   // Progress tracking
-  updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<LessonProgress>;
-  getLessonProgress(userId: string, lessonId: string): Promise<LessonProgress | undefined>;
+  updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<Progress>;
+  getLessonProgress(userId: string, lessonId: string): Promise<Progress | undefined>;
   getCourseProgressStats(userId: string, courseId: string): Promise<{ completedLessons: number; totalLessons: number; totalTimeSpent: number }>;
   
-  // Assessment operations
-  getAssessmentsByCourse(courseId: string): Promise<Assessment[]>;
-  getAssessment(id: string): Promise<Assessment | undefined>;
-  createAssessment(assessment: InsertAssessment): Promise<Assessment>;
-  
-  // Question operations
-  getQuestionsByAssessment(assessmentId: string): Promise<Question[]>;
-  
-  // Assessment attempt operations
-  createAssessmentAttempt(attempt: Omit<AssessmentAttempt, 'id' | 'startedAt'>): Promise<AssessmentAttempt>;
-  getAssessmentAttempts(userId: string, assessmentId: string): Promise<AssessmentAttempt[]>;
-  
-  // Achievement operations
-  getAchievements(): Promise<Achievement[]>;
-  getUserAchievements(userId: string): Promise<UserAchievement[]>;
-  awardAchievement(userId: string, achievementId: string): Promise<UserAchievement>;
-  
-  // Certificate operations
-  createCertificate(userId: string, courseId: string, certificateUrl: string): Promise<Certificate>;
-  getCertificatesByUser(userId: string): Promise<Certificate[]>;
-  
-  // Forum operations
-  createForumPost(post: InsertForumPost): Promise<ForumPost>;
-  getForumPostsByCourse(courseId: string): Promise<ForumPost[]>;
+  // Simplified interface - remove unused operations for now
   
   // Statistics
   getDashboardStats(userId: string): Promise<{
@@ -206,7 +195,11 @@ export class DatabaseStorage implements IStorage {
 
   // Enrollment operations
   async enrollUser(enrollment: InsertEnrollment): Promise<Enrollment> {
-    const [newEnrollment] = await db.insert(enrollments).values(enrollment).returning();
+    const enrollmentWithId = {
+      ...enrollment,
+      id: enrollment.id || `enroll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+    const [newEnrollment] = await db.insert(enrollments).values(enrollmentWithId).returning();
     return newEnrollment;
   }
 
@@ -226,37 +219,151 @@ export class DatabaseStorage implements IStorage {
     return enrollment;
   }
 
-  async updateEnrollmentProgress(userId: string, courseId: string, progress: number): Promise<Enrollment> {
-    const [updatedEnrollment] = await db
+  async updateEnrollmentProgress(userId: string, courseId: string, progress: number): Promise<any> {
+    const result = await db
       .update(enrollments)
-      .set({ progress: progress.toString() })
-      .where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId)))
+      .set({ 
+        progress,
+        completedAt: progress >= 100 ? new Date() : null
+      })
+      .where(and(
+        eq(enrollments.userId, userId),
+        eq(enrollments.courseId, courseId)
+      ))
       .returning();
-    return updatedEnrollment;
+    
+    return result[0];
+  }
+
+  // Quiz and Badge methods
+  async getQuizQuestions(courseId: string): Promise<any[]> {
+    // Import quiz questions dynamically
+    const { quizQuestions } = await import('./quiz-data.js');
+    return quizQuestions.filter(q => q.courseId === courseId);
+  }
+
+  async createQuizAttempt(attempt: any): Promise<any> {
+    const result = await db
+      .insert(quizAttempts)
+      .values({
+        id: `quiz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        userId: attempt.userId,
+        courseId: attempt.courseId,
+        answers: JSON.stringify(attempt.answers),
+        score: attempt.score,
+        passed: attempt.passed,
+        timeSpent: attempt.timeSpent || 0
+      })
+      .returning();
+    
+    return result[0];
+  }
+
+  async getUserQuizAttempts(userId: string, courseId?: string): Promise<any[]> {
+    if (courseId) {
+      return await db
+        .select()
+        .from(quizAttempts)
+        .where(and(eq(quizAttempts.userId, userId), eq(quizAttempts.courseId, courseId)));
+    }
+
+    return await db
+      .select()
+      .from(quizAttempts)
+      .where(eq(quizAttempts.userId, userId));
+  }
+
+  async awardBadge(userId: string, courseId: string, quizAttemptId: string): Promise<any> {
+    const badgeId = `badge_${courseId}`;
+    const result = await db
+      .insert(userBadges)
+      .values({
+        id: `user_badge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        userId,
+        badgeId,
+        courseId,
+        quizAttemptId
+      })
+      .returning();
+    
+    return result[0];
+  }
+
+  async getUserBadges(userId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(userBadges)
+      .where(eq(userBadges.userId, userId));
+  }
+
+  async checkCertificateEligibility(userId: string): Promise<{ eligible: boolean; coursesCompleted: string[]; totalScore: number }> {
+    const badges = await this.getUserBadges(userId);
+    const coursesCompleted = badges.map(b => b.badgeId.replace('badge_', ''));
+    
+    // Calculate average score from quiz attempts
+    const attempts = await this.getUserQuizAttempts(userId);
+    const passedAttempts = attempts.filter(a => a.passed);
+    const totalScore = passedAttempts.length > 0 
+      ? passedAttempts.reduce((sum, a) => sum + a.score, 0) / passedAttempts.length 
+      : 0;
+
+    return {
+      eligible: coursesCompleted.length >= 3, // Need 3 out of 4 courses
+      coursesCompleted,
+      totalScore
+    };
+  }
+
+  async issueCertificate(userId: string): Promise<any> {
+    const eligibility = await this.checkCertificateEligibility(userId);
+    
+    if (!eligibility.eligible) {
+      throw new Error('User not eligible for certificate');
+    }
+
+    const result = await db
+      .insert(courseCertificates)
+      .values({
+        id: `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        userId,
+        coursesCompleted: JSON.stringify(eligibility.coursesCompleted),
+        averageScore: eligibility.totalScore
+      })
+      .returning();
+    
+    return result[0];
+  }
+
+  async getUserCertificates(userId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(courseCertificates)
+      .where(eq(courseCertificates.userId, userId));
   }
 
   // Progress tracking
-  async updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<LessonProgress> {
+  async updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<Progress> {
     const [existingProgress] = await db
       .select()
-      .from(lessonProgress)
-      .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)));
+      .from(progress)
+      .where(and(eq(progress.userId, userId), eq(progress.lessonId, lessonId)));
 
     if (existingProgress) {
       const [updatedProgress] = await db
-        .update(lessonProgress)
+        .update(progress)
         .set({
           completed,
           completedAt: completed ? new Date() : null,
           timeSpent: (existingProgress.timeSpent || 0) + timeSpent,
         })
-        .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)))
+        .where(and(eq(progress.userId, userId), eq(progress.lessonId, lessonId)))
         .returning();
       return updatedProgress;
     } else {
       const [newProgress] = await db
-        .insert(lessonProgress)
+        .insert(progress)
         .values({
+          id: randomUUID(),
           userId,
           lessonId,
           completed,
@@ -268,24 +375,24 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getLessonProgress(userId: string, lessonId: string): Promise<LessonProgress | undefined> {
-    const [progress] = await db
+  async getLessonProgress(userId: string, lessonId: string): Promise<Progress | undefined> {
+    const [progressRecord] = await db
       .select()
-      .from(lessonProgress)
-      .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)));
-    return progress;
+      .from(progress)
+      .where(and(eq(progress.userId, userId), eq(progress.lessonId, lessonId)));
+    return progressRecord;
   }
 
   async getCourseProgressStats(userId: string, courseId: string): Promise<{ completedLessons: number; totalLessons: number; totalTimeSpent: number }> {
     const result = await db
       .select({
-        completedLessons: count(sql`CASE WHEN ${lessonProgress.completed} = true THEN 1 END`),
+        completedLessons: count(sql`CASE WHEN ${progress.completed} = true THEN 1 END`),
         totalLessons: count(lessons.id),
-        totalTimeSpent: sum(lessonProgress.timeSpent),
+        totalTimeSpent: sum(progress.timeSpent),
       })
       .from(lessons)
       .innerJoin(modules, eq(lessons.moduleId, modules.id))
-      .leftJoin(lessonProgress, and(eq(lessonProgress.lessonId, lessons.id), eq(lessonProgress.userId, userId)))
+      .leftJoin(progress, and(eq(progress.lessonId, lessons.id), eq(progress.userId, userId)))
       .where(eq(modules.courseId, courseId));
 
     return {
@@ -295,73 +402,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Assessment operations
-  async getAssessmentsByCourse(courseId: string): Promise<Assessment[]> {
-    return db.select().from(assessments).where(eq(assessments.courseId, courseId));
-  }
-
-  async getAssessment(id: string): Promise<Assessment | undefined> {
-    const [assessment] = await db.select().from(assessments).where(eq(assessments.id, id));
-    return assessment;
-  }
-
-  async createAssessment(assessment: InsertAssessment): Promise<Assessment> {
-    const [newAssessment] = await db.insert(assessments).values(assessment).returning();
-    return newAssessment;
-  }
-
-  // Question operations
-  async getQuestionsByAssessment(assessmentId: string): Promise<Question[]> {
-    return db.select().from(questions).where(eq(questions.assessmentId, assessmentId)).orderBy(questions.orderIndex);
-  }
-
-  // Assessment attempt operations
-  async createAssessmentAttempt(attempt: Omit<AssessmentAttempt, 'id' | 'startedAt'>): Promise<AssessmentAttempt> {
-    const [newAttempt] = await db.insert(assessmentAttempts).values(attempt).returning();
-    return newAttempt;
-  }
-
-  async getAssessmentAttempts(userId: string, assessmentId: string): Promise<AssessmentAttempt[]> {
-    return db
-      .select()
-      .from(assessmentAttempts)
-      .where(and(eq(assessmentAttempts.userId, userId), eq(assessmentAttempts.assessmentId, assessmentId)))
-      .orderBy(desc(assessmentAttempts.startedAt));
-  }
-
-  // Achievement operations
-  async getAchievements(): Promise<Achievement[]> {
-    return db.select().from(achievements);
-  }
-
-  async getUserAchievements(userId: string): Promise<UserAchievement[]> {
-    return db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
-  }
-
-  async awardAchievement(userId: string, achievementId: string): Promise<UserAchievement> {
-    const [newAchievement] = await db.insert(userAchievements).values({ userId, achievementId }).returning();
-    return newAchievement;
-  }
-
-  // Certificate operations
-  async createCertificate(userId: string, courseId: string, certificateUrl: string): Promise<Certificate> {
-    const [newCertificate] = await db.insert(certificates).values({ userId, courseId, certificateUrl }).returning();
-    return newCertificate;
-  }
-
-  async getCertificatesByUser(userId: string): Promise<Certificate[]> {
-    return db.select().from(certificates).where(eq(certificates.userId, userId));
-  }
-
-  // Forum operations
-  async createForumPost(post: InsertForumPost): Promise<ForumPost> {
-    const [newPost] = await db.insert(forumPosts).values(post).returning();
-    return newPost;
-  }
-
-  async getForumPostsByCourse(courseId: string): Promise<ForumPost[]> {
-    return db.select().from(forumPosts).where(eq(forumPosts.courseId, courseId)).orderBy(desc(forumPosts.createdAt));
-  }
+  // Simplified operations - removed unused features for now
 
   // Statistics
   async getDashboardStats(userId: string): Promise<{
@@ -374,21 +415,17 @@ export class DatabaseStorage implements IStorage {
     const completedResult = await db
       .select({ count: count() })
       .from(enrollments)
-      .where(and(eq(enrollments.userId, userId), eq(enrollments.progress, '100')));
+      .where(and(eq(enrollments.userId, userId), eq(enrollments.progress, 100)));
     const timeResult = await db
-      .select({ total: sum(lessonProgress.timeSpent) })
-      .from(lessonProgress)
-      .where(eq(lessonProgress.userId, userId));
-    const achievementResult = await db
-      .select({ count: count() })
-      .from(userAchievements)
-      .where(eq(userAchievements.userId, userId));
+      .select({ total: sum(progress.timeSpent) })
+      .from(progress)
+      .where(eq(progress.userId, userId));
 
     return {
       enrolledCourses: enrolledResult[0]?.count || 0,
       completedCourses: completedResult[0]?.count || 0,
       totalTimeSpent: Number(timeResult[0]?.total || 0),
-      achievements: achievementResult[0]?.count || 0,
+      achievements: 0, // Simplified for now
     };
   }
 
@@ -429,6 +466,56 @@ export class DatabaseStorage implements IStorage {
       totalEnrollments: enrollmentsResult[0]?.count || 0,
       totalRevenue: 0, // Placeholder - would calculate from actual payments
     };
+  }
+
+  // Assessment methods
+  async getAssessmentsByCourse(courseId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(assessments)
+      .innerJoin(lessons, eq(assessments.lessonId, lessons.id))
+      .innerJoin(modules, eq(lessons.moduleId, modules.id))
+      .where(eq(modules.courseId, courseId));
+  }
+
+  async getQuestionsByAssessment(assessmentId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(questions)
+      .where(eq(questions.lessonId, assessmentId));
+  }
+
+  // Achievement methods
+  async getAchievements(): Promise<any[]> {
+    return await db.select().from(achievements);
+  }
+
+  async getUserAchievements(userId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(userAchievements)
+      .innerJoin(achievements, eq(userAchievements.achievementId, achievements.id))
+      .where(eq(userAchievements.userId, userId));
+  }
+
+  // Forum methods
+  async createForumPost(post: any): Promise<any> {
+    const result = await db
+      .insert(forumPosts)
+      .values({
+        id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...post
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getForumPostsByCourse(courseId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(forumPosts)
+      .where(eq(forumPosts.courseId, courseId))
+      .orderBy(desc(forumPosts.createdAt));
   }
 }
 

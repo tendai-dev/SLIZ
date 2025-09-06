@@ -13,6 +13,15 @@ export class ScormIntegration {
 
   constructor() {
     this.scormCoursesPath = path.join(__dirname, 'public', 'scorm-courses');
+    // Get list of SCORM course directories and sort them
+    const courseDirs = fs.readdirSync(this.scormCoursesPath)
+      .filter(dir => fs.statSync(path.join(this.scormCoursesPath, dir)).isDirectory())
+      .sort((a, b) => {
+        // Extract course numbers and sort numerically
+        const numA = parseInt(a.match(/micro-course-(\d+)/)?.[1] || '0');
+        const numB = parseInt(b.match(/micro-course-(\d+)/)?.[1] || '0');
+        return numA - numB;
+      });
     this.scormParser = new ScormParser(this.scormCoursesPath);
   }
 
@@ -53,16 +62,18 @@ export class ScormIntegration {
   private async createNewCourse(scormCourse: ScormCourse): Promise<void> {
     // Create the course
     const course = await storage.createCourse({
+      id: scormCourse.id,
       title: scormCourse.title,
       description: scormCourse.description,
       instructorId: 'system', // System-generated course
       categoryId: 'scorm-courses', // Default category for SCORM courses
       imageUrl: this.getCourseThumbnail(scormCourse),
-      isPublished: 1
+      isPublished: true
     });
 
     // Create a single module for the SCORM content
     const module = await storage.createModule({
+      id: `${scormCourse.id}-module-1`,
       courseId: course.id,
       title: scormCourse.title,
       description: 'Interactive SCORM content',
@@ -71,6 +82,7 @@ export class ScormIntegration {
 
     // Create a lesson that launches the SCORM content
     await storage.createLesson({
+      id: `${scormCourse.id}-lesson-1`,
       moduleId: module.id,
       title: scormCourse.title,
       content: this.generateScormLessonContent(scormCourse),
@@ -86,7 +98,7 @@ export class ScormIntegration {
       title: scormCourse.title,
       description: scormCourse.description,
       imageUrl: this.getCourseThumbnail(scormCourse),
-      isPublished: 1
+      isPublished: true
     });
 
     // Get existing modules and lessons to update content

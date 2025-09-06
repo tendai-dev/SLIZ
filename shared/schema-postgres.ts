@@ -173,6 +173,37 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Quiz attempts
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  courseId: text("course_id").notNull(),
+  answers: text("answers").notNull(), // JSON array of answer indices
+  score: integer("score").notNull(),
+  passed: boolean("passed").notNull(),
+  timeSpent: integer("time_spent").default(0), // in seconds
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User badges
+export const userBadges = pgTable("user_badges", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  badgeId: text("badge_id").notNull(), // e.g., "badge_scorm-course-1"
+  courseId: text("course_id").notNull(),
+  quizAttemptId: text("quiz_attempt_id").notNull(),
+  awardedAt: timestamp("awarded_at").defaultNow().notNull(),
+});
+
+// Certificates for completing multiple courses
+export const courseCertificates = pgTable("course_certificates", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  coursesCompleted: text("courses_completed").notNull(), // JSON array of course IDs
+  averageScore: real("average_score").notNull(),
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   enrollments: many(enrollments),

@@ -48,14 +48,14 @@ export function Navigation() {
             {isSignedIn ? (
               <>
                 <Link href="/courses">
-                  <a className="text-foreground hover:text-primary transition-colors" data-testid="nav-courses">
+                  <span className="text-foreground hover:text-primary transition-colors cursor-pointer" data-testid="nav-courses">
                     Courses
-                  </a>
+                  </span>
                 </Link>
-                <Link href="/dashboard/student">
-                  <a className="text-foreground hover:text-primary transition-colors" data-testid="nav-dashboard">
+                <Link href="/dashboard">
+                  <span className="text-foreground hover:text-primary transition-colors cursor-pointer" data-testid="nav-dashboard">
                     Dashboard
-                  </a>
+                  </span>
                 </Link>
                 
                 {/* User Menu */}
@@ -86,8 +86,8 @@ export function Navigation() {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard/student">
-                        <a className="w-full" data-testid="menu-dashboard">Dashboard</a>
+                      <Link href="/dashboard">
+                        <span className="w-full cursor-pointer" data-testid="menu-dashboard">Dashboard</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -104,7 +104,7 @@ export function Navigation() {
                 <a href="#" className="text-foreground hover:text-primary transition-colors">Courses</a>
                 <a href="#" className="text-foreground hover:text-primary transition-colors">About</a>
                 <a href="#" className="text-foreground hover:text-primary transition-colors">Contact</a>
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard" signUpFallbackRedirectUrl="/dashboard">
                   <Button 
                     variant="outline" 
                     className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
@@ -113,7 +113,7 @@ export function Navigation() {
                     Sign In
                   </Button>
                 </SignInButton>
-                <SignUpButton mode="modal">
+                <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard" signInFallbackRedirectUrl="/dashboard">
                   <Button 
                     className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25"
                     data-testid="button-get-started"
@@ -164,7 +164,7 @@ export function Navigation() {
                       </Button>
                     </Link>
                     
-                    <Link href="/dashboard/student">
+                    <Link href="/dashboard">
                       <Button 
                         variant="ghost" 
                         className="w-full justify-start text-left"
@@ -189,7 +189,7 @@ export function Navigation() {
                   </>
                 ) : (
                   <>
-                    <SignInButton mode="modal">
+                    <SignInButton mode="modal" fallbackRedirectUrl="/dashboard" signUpFallbackRedirectUrl="/dashboard">
                       <Button 
                         variant="outline" 
                         className="w-full mt-4"
@@ -199,7 +199,7 @@ export function Navigation() {
                         Sign In
                       </Button>
                     </SignInButton>
-                    <SignUpButton mode="modal">
+                    <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard" signInFallbackRedirectUrl="/dashboard">
                       <Button 
                         variant="default" 
                         className="w-full"

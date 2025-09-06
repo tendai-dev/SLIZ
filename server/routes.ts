@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupClerkAuth, requireAuth, withAuth, getCurrentUser } from "./clerk-auth";
+import { setupClerkAuth, requireAuth, withAuth, getCurrentUser } from "./auth-simple";
 import { ScormIntegration } from "./scorm-integration";
 import { initializeScormCategory } from "./init-scorm";
 import { insertCourseSchema, insertModuleSchema, insertLessonSchema, insertEnrollmentSchema } from "@shared/schema";
@@ -9,6 +9,7 @@ import { z } from "zod";
 import * as path from "path";
 import express from "express";
 import { fileURLToPath } from 'url';
+import quizRoutes from "./quiz-routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize SCORM category and courses
   try {
-    await initializeScormCategory();
+    // Create system user if it doesn't exist
+    try {
+      const systemUser = await storage.getUser('system');
+      if (!systemUser) {
+        await storage.upsertUser({
+          id: 'system',
+          email: 'system@sliz.academy',
+          firstName: 'SLIZ',
+          lastName: 'System',
+          role: 'admin'
+        });
+        console.log('Created system user');
+      }
+    } catch (error) {
+      console.log('System user setup:', error);
+    }
+
+    // Initialize SCORM courses
     await scormIntegration.initializeScormCourses();
   } catch (error) {
     console.error('Failed to initialize SCORM system:', error);
@@ -73,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/courses', requireAuth, async (req: any, res) => {
     try {
       const courseData = insertCourseSchema.parse(req.body);
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       const user = await storage.getUser(userId);
       
       if (!user || (user.role !== 'instructor' && user.role !== 'admin')) {
@@ -81,8 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const course = await storage.createCourse({
+        id: `course_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...courseData,
         instructorId: userId,
+        isPublished: Boolean(courseData.isPublished),
       });
       res.status(201).json(course);
     } catch (error) {
@@ -108,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/courses/:courseId/modules', requireAuth, async (req: any, res) => {
     try {
       const moduleData = insertModuleSchema.parse(req.body);
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       
       // Check if user is instructor of the course
       const course = await storage.getCourse(req.params.courseId);
@@ -117,6 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const module = await storage.createModule({
+        id: `module_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...moduleData,
         courseId: req.params.courseId,
       });
@@ -144,10 +165,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/modules/:moduleId/lessons', requireAuth, async (req: any, res) => {
     try {
       const lessonData = insertLessonSchema.parse(req.body);
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       
       // Check permissions (simplified - would need to check through module -> course -> instructor)
       const lesson = await storage.createLesson({
+        id: `lesson_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...lessonData,
         moduleId: req.params.moduleId,
       });
@@ -165,24 +187,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enrollment routes
   app.post('/api/enrollments', requireAuth, async (req: any, res) => {
     try {
+      console.log('Enrollment request body:', req.body);
+      console.log('User auth:', req.auth);
+      
       // Accept only courseId from the client and attach the authed userId
       const { courseId } = z.object({ courseId: z.string() }).parse(req.body);
-      const userId = req.user.claims.sub;
+      const userId = req.auth?.userId || 'dev-user-1';
+      
+      console.log('Enrolling user:', userId, 'in course:', courseId);
 
       // Check if already enrolled
       const existingEnrollment = await storage.getEnrollment(userId, courseId);
       if (existingEnrollment) {
+        console.log('User already enrolled');
         return res.status(200).json(existingEnrollment);
       }
 
       const enrollment = await storage.enrollUser({
+        id: `enrollment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId,
-        courseId,
+        courseId: req.params.courseId,
         progress: 0,
       });
+      console.log('Enrollment created:', enrollment);
       res.status(201).json(enrollment);
     } catch (error) {
-      console.error("Error creating enrollment:", error);
+      console.error("Error creating enrollment - full details:", error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Validation error", errors: error.errors });
       } else {
@@ -193,27 +223,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/enrollments/my', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      console.log('Auth object:', req.auth);
+      console.log('User ID:', req.auth?.userId);
+      
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "No user ID found in auth" });
+      }
+      
       const enrollments = await storage.getEnrollmentsByUser(userId);
-
-      // Enrich enrollment records with course details for the dashboard
-      const detailed = await Promise.all(
-        enrollments.map(async (e) => {
-          const course = await storage.getCourse(e.courseId);
-          return {
-            id: e.courseId,
-            title: course?.title ?? 'Course',
-            description: course?.description ?? '',
-            imageUrl: (course as any)?.imageUrl ?? undefined,
-            progress: Number(e.progress ?? 0),
-            completed: Number(e.progress ?? 0) >= 100 || !!e.completedAt,
-            enrolledAt: e.enrolledAt,
-            lastAccessed: e.completedAt ?? e.enrolledAt,
-          };
-        })
-      );
-
-      res.json(detailed);
+      console.log('Found enrollments:', enrollments.length);
+      res.json(enrollments);
     } catch (error) {
       console.error("Error fetching enrollments:", error);
       res.status(500).json({ message: "Failed to fetch enrollments" });
@@ -224,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/lessons/:lessonId/progress', requireAuth, async (req: any, res) => {
     try {
       const { completed, timeSpent } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       
       const progress = await storage.updateLessonProgress(userId, req.params.lessonId, completed, timeSpent);
       res.json(progress);
@@ -236,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/courses/:courseId/progress', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       const stats = await storage.getCourseProgressStats(userId, req.params.courseId);
       res.json(stats);
     } catch (error) {
@@ -248,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard routes
   app.get('/api/dashboard/student', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       const stats = await storage.getDashboardStats(userId);
       res.json(stats);
     } catch (error) {
@@ -259,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/dashboard/instructor', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       const user = await storage.getUser(userId);
       
       if (!user || (user.role !== 'instructor' && user.role !== 'admin')) {
@@ -276,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/dashboard/admin', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       const user = await storage.getUser(userId);
       
       if (!user || user.role !== 'admin') {
@@ -326,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/courses/:courseId/forum', requireAuth, async (req: any, res) => {
     try {
       const { title, content, parentId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       
       const post = await storage.createForumPost({
         title,
@@ -355,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/achievements/my', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.auth.userId;
       const userAchievements = await storage.getUserAchievements(userId);
       res.json(userAchievements);
     } catch (error) {
@@ -368,26 +388,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/enrollments and GET /api/enrollments/my instead.
 
   // SCORM API endpoints
-  app.post('/api/scorm/launch', requireAuth, async (req, res) => {
+  app.post('/api/scorm/launch', requireAuth, async (req: any, res) => {
     const { courseId, launchUrl } = req.body;
-    console.log(`SCORM course launched: ${courseId} at ${launchUrl}`);
+    const userId = req.auth?.userId || 'dev-user-1';
+    console.log(`SCORM course launched: ${courseId} by user ${userId}`);
     res.json({ success: true });
   });
 
   app.post('/api/scorm/close', requireAuth, async (req: any, res) => {
     try {
       const { courseId } = req.body;
-      const userId = req.user?.claims?.sub;
-      
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      const userId = req.auth?.userId || 'dev-user-1';
 
       console.log(`User ${userId} closed SCORM course ${courseId}`);
       res.json({ success: true, message: "SCORM course closed" });
     } catch (error) {
       console.error("Error closing SCORM course:", error);
       res.status(500).json({ message: "Failed to close SCORM course" });
+    }
+  });
+
+  // SCORM Progress tracking
+  app.post('/api/scorm/progress', requireAuth, async (req: any, res) => {
+    try {
+      const { courseId, progress, completed, scormData } = req.body;
+      const userId = req.auth?.userId || 'dev-user-1';
+      
+      console.log(`Updating progress for user ${userId} in course ${courseId}: ${progress}%`);
+      
+      // Update enrollment progress with SCORM data
+      const updatedEnrollment = await storage.updateEnrollmentProgress(userId, courseId, progress);
+      
+      // Store SCORM data separately if needed (you might want to add a scormData column to enrollments table)
+      if (scormData) {
+        // For now, we'll just log it - in production you'd save this to database
+        console.log('SCORM Data:', JSON.stringify(scormData));
+      }
+      
+      res.json({ 
+        success: true, 
+        enrollment: updatedEnrollment 
+      });
+    } catch (error) {
+      console.error("Error updating SCORM progress:", error);
+      res.status(500).json({ message: "Failed to update progress" });
     }
   });
 
@@ -401,6 +445,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch SCORM courses" });
     }
   });
+
+  // Quiz routes
+  app.use(quizRoutes);
 
   const server = createServer(app);
   return server;

@@ -4,7 +4,7 @@ import {
   modules,
   lessons,
   enrollments,
-  lessonProgress,
+  progress,
   categories,
   type User,
   type UpsertUser,
@@ -12,12 +12,12 @@ import {
   type Module,
   type Lesson,
   type Enrollment,
-  type LessonProgress,
+  type Progress,
   type InsertCourse,
   type InsertModule,
   type InsertLesson,
   type InsertEnrollment,
-} from "@shared/schema";
+} from "@shared/schema-postgres";
 import { db } from "./db";
 import { eq, desc, and, count, sum, sql } from "drizzle-orm";
 
@@ -54,9 +54,9 @@ export interface IStorage {
   getEnrollment(userId: string, courseId: string): Promise<Enrollment | undefined>;
   updateEnrollmentProgress(userId: string, courseId: string, progress: number): Promise<Enrollment>;
   
-  // Progress tracking
-  updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<LessonProgress>;
-  getLessonProgress(userId: string, lessonId: string): Promise<LessonProgress | undefined>;
+  // Progress operations
+  updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<Progress>;
+  getLessonProgress(userId: string, lessonId: string): Promise<Progress | undefined>;
   getCourseProgressStats(userId: string, courseId: string): Promise<{ completedLessons: number; totalLessons: number; totalTimeSpent: number }>;
   
   // Simplified methods for features not yet implemented
@@ -110,7 +110,7 @@ export class DatabaseStorage implements IStorage {
         .update(users)
         .set({
           ...userData,
-          updatedAt: Math.floor(Date.now() / 1000),
+          updatedAt: new Date(),
         })
         .where(eq(users.id, userData.id!))
         .returning();
@@ -120,7 +120,7 @@ export class DatabaseStorage implements IStorage {
 
   // Course operations
   async getCourses(): Promise<Course[]> {
-    return db.select().from(courses).where(eq(courses.isPublished, 1)).orderBy(desc(courses.createdAt));
+    return db.select().from(courses).where(eq(courses.isPublished, true)).orderBy(desc(courses.createdAt));
   }
 
   async getCourse(id: string): Promise<Course | undefined> {
@@ -136,7 +136,7 @@ export class DatabaseStorage implements IStorage {
   async updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course> {
     const [updatedCourse] = await db
       .update(courses)
-      .set({ ...course, updatedAt: Math.floor(Date.now() / 1000) })
+      .set({ ...course, updatedAt: new Date() })
       .where(eq(courses.id, id))
       .returning();
     return updatedCourse;
@@ -224,32 +224,33 @@ export class DatabaseStorage implements IStorage {
     return updatedEnrollment;
   }
 
-  // Progress tracking
-  async updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<LessonProgress> {
+  // Progress operations
+  async updateLessonProgress(userId: string, lessonId: string, completed: boolean, timeSpent: number): Promise<Progress> {
     const [existingProgress] = await db
       .select()
-      .from(lessonProgress)
-      .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)));
+      .from(progress)
+      .where(and(eq(progress.userId, userId), eq(progress.lessonId, lessonId)));
 
     if (existingProgress) {
       const [updatedProgress] = await db
-        .update(lessonProgress)
+        .update(progress)
         .set({
-          completed: completed ? 1 : 0,
-          completedAt: completed ? Math.floor(Date.now() / 1000) : null,
+          completed,
+          completedAt: completed ? new Date() : null,
           timeSpent: (existingProgress.timeSpent || 0) + timeSpent,
         })
-        .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)))
+        .where(and(eq(progress.userId, userId), eq(progress.lessonId, lessonId)))
         .returning();
       return updatedProgress;
     } else {
       const [newProgress] = await db
-        .insert(lessonProgress)
+        .insert(progress)
         .values({
+          id: `progress_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           userId,
           lessonId,
-          completed: completed ? 1 : 0,
-          completedAt: completed ? Math.floor(Date.now() / 1000) : null,
+          completed,
+          completedAt: completed ? new Date() : null,
           timeSpent,
         })
         .returning();
@@ -257,24 +258,25 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getLessonProgress(userId: string, lessonId: string): Promise<LessonProgress | undefined> {
-    const [progress] = await db
+  async getLessonProgress(userId: string, lessonId: string): Promise<Progress | undefined> {
+    const [progressRecord] = await db
       .select()
-      .from(lessonProgress)
-      .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lessonId)));
-    return progress;
+      .from(progress)
+      .where(and(eq(progress.userId, userId), eq(progress.lessonId, lessonId)));
+
+    return progressRecord;
   }
 
   async getCourseProgressStats(userId: string, courseId: string): Promise<{ completedLessons: number; totalLessons: number; totalTimeSpent: number }> {
     const result = await db
       .select({
-        completedLessons: count(sql`CASE WHEN ${lessonProgress.completed} = 1 THEN 1 END`),
+        completedLessons: count(sql`CASE WHEN ${progress.completed} = 1 THEN 1 END`),
         totalLessons: count(lessons.id),
-        totalTimeSpent: sum(lessonProgress.timeSpent),
+        totalTimeSpent: sum(progress.timeSpent),
       })
       .from(lessons)
       .innerJoin(modules, eq(lessons.moduleId, modules.id))
-      .leftJoin(lessonProgress, and(eq(lessonProgress.lessonId, lessons.id), eq(lessonProgress.userId, userId)))
+      .leftJoin(progress, and(eq(progress.lessonId, lessons.id), eq(progress.userId, userId)))
       .where(eq(modules.courseId, courseId));
 
     return {
@@ -322,9 +324,9 @@ export class DatabaseStorage implements IStorage {
       .from(enrollments)
       .where(and(eq(enrollments.userId, userId), eq(enrollments.progress, 100)));
     const timeResult = await db
-      .select({ total: sum(lessonProgress.timeSpent) })
-      .from(lessonProgress)
-      .where(eq(lessonProgress.userId, userId));
+      .select({ total: sum(progress.timeSpent) })
+      .from(progress)
+      .where(eq(progress.userId, userId));
 
     return {
       enrolledCourses: enrolledResult[0]?.count || 0,

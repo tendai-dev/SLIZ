@@ -34,6 +34,51 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at").default(sql`(unixepoch())`).notNull(),
 });
 
+// Progress tracking
+export const progress = sqliteTable("progress", {
+  id: text("id").primaryKey().default(sql`(hex(randomblob(16)))`),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  lessonId: text("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
+  completed: integer("completed", { mode: "boolean" }).default(false).notNull(),
+  timeSpent: integer("time_spent").default(0).notNull(), // in seconds
+  completedAt: integer("completed_at"),
+  createdAt: integer("created_at").default(sql`(unixepoch())`).notNull(),
+  updatedAt: integer("updated_at").default(sql`(unixepoch())`).notNull(),
+});
+
+// Quiz attempts
+export const quizAttempts = sqliteTable("quiz_attempts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  courseId: text("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  answers: text("answers").notNull(), // JSON string of selected answers
+  score: integer("score").notNull(), // Percentage score (0-100)
+  passed: integer("passed", { mode: "boolean" }).default(false).notNull(),
+  completedAt: integer("completed_at").default(sql`(unixepoch())`).notNull(),
+  timeSpent: integer("time_spent").default(0).notNull(), // Time in seconds
+});
+
+// User badges
+export const userBadges = sqliteTable("user_badges", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  badgeId: text("badge_id").notNull(), // References course badge
+  earnedAt: integer("earned_at").default(sql`(unixepoch())`).notNull(),
+  quizAttemptId: text("quiz_attempt_id").notNull().references(() => quizAttempts.id, { onDelete: "cascade" }),
+});
+
+// Certificates
+export const certificates = sqliteTable("certificates", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  issuedAt: integer("issued_at").default(sql`(unixepoch())`).notNull(),
+  coursesCompleted: text("courses_completed").notNull(), // JSON array of course IDs
+  totalScore: real("total_score").notNull(), // Average score across completed courses
+  imageUrl: text("image_url"),
+});
+
 // Course categories
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey().default(sql`(hex(randomblob(16)))`),

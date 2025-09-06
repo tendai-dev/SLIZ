@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { isUnauthorizedError } from '@/lib/authUtils';
-import { apiRequest } from '@/lib/queryClient';
+import { useApiRequest } from '@/lib/api';
 import { Search, Filter, BookOpen, Clock, Users, Star } from 'lucide-react';
 
 interface Course {
@@ -29,6 +29,7 @@ export default function Courses() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const apiRequest = useApiRequest();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
 
@@ -55,21 +56,15 @@ export default function Courses() {
         description: "You have been enrolled in the course.",
       });
     },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: (error: any) => {
+      console.error("Enrollment error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        error
+      });
       toast({
         title: "Enrollment Failed",
-        description: error.message,
+        description: error?.message || "Failed to enroll in course",
         variant: "destructive",
       });
     },
@@ -87,6 +82,18 @@ export default function Courses() {
   });
 
   const difficulties = ['Foundation', 'Intermediate', 'Advanced', 'Professional'];
+
+  const getCourseImage = (courseId: string, courseTitle: string) => {
+    // Map course IDs to appropriate sport-themed images
+    const courseImageMap: Record<string, string> = {
+      "scorm-course-1": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", // Stadium/sports facility
+      "scorm-course-2": "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", // Finance/money management
+      "scorm-course-3": "https://images.unsplash.com/photo-1556817411-31ae72fa3ea0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", // Sports marketing/branding
+      "scorm-course-4": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" // Team management/leadership
+    };
+    
+    return courseImageMap[courseId] || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300";
+  };
 
   const isEnrolled = (courseId: string) => {
     return enrollments.some((enrollment: any) => enrollment.courseId === courseId);
@@ -107,11 +114,7 @@ export default function Courses() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation 
-        isAuthenticated={!!user}
-        user={user}
-        onSignOut={handleSignOut}
-      />
+      <Navigation />
       
       <div className="container mx-auto px-6 py-8 mt-20">
         {/* Header */}
@@ -228,10 +231,10 @@ export default function Courses() {
                 key={course.id}
                 id={course.id}
                 title={course.title}
-                description={course.description}
-                imageUrl={course.imageUrl}
-                difficulty={course.difficulty}
-                duration={`${course.duration} weeks`}
+                description={course.description || 'SCORM course content'}
+                imageUrl={getCourseImage(course.id, course.title)}
+                difficulty={course.difficulty || 'Foundation'}
+                duration={course.duration ? `${course.duration} weeks` : 'Self-paced'}
                 students={0} // Would need to fetch from enrollment count
                 rating={4.8}
                 progress={isEnrolled(course.id) ? getEnrollmentProgress(course.id) : 0}

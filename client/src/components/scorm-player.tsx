@@ -16,10 +16,28 @@ interface ScormPlayerProps {
 export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose }: ScormPlayerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [scormData, setScormData] = useState<any>({});
   const { user } = useUser();
 
+  // Load saved progress when opening course
   useEffect(() => {
     if (isOpen && user) {
+      // Fetch existing progress
+      fetch(`/api/enrollments/my`)
+        .then(res => res.json())
+        .then(enrollments => {
+          const enrollment = enrollments.find((e: any) => e.courseId === courseId);
+          if (enrollment) {
+            setProgress(enrollment.progress || 0);
+            // Load saved SCORM data if available
+            if (enrollment.scormData) {
+              setScormData(enrollment.scormData);
+            }
+          }
+        })
+        .catch(console.error);
+
       // Log SCORM launch event
       fetch('/api/scorm/launch', {
         method: 'POST',
@@ -32,11 +50,83 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
         }),
       }).catch(console.error);
     }
-  }, [isOpen, courseId, launchUrl, user]);
+  }, [isOpen, courseId, user]);
+
+  // Set up SCORM API for the iframe
+  useEffect(() => {
+    if (isOpen) {
+      // Create SCORM API object that the course can interact with
+      (window as any).API = {
+        LMSInitialize: () => {
+          console.log('SCORM: LMSInitialize');
+          return 'true';
+        },
+        LMSFinish: () => {
+          console.log('SCORM: LMSFinish');
+          // Save final progress
+          handleSaveProgress();
+          return 'true';
+        },
+        LMSGetValue: (key: string) => {
+          console.log('SCORM: LMSGetValue', key);
+          return scormData[key] || '';
+        },
+        LMSSetValue: (key: string, value: string) => {
+          console.log('SCORM: LMSSetValue', key, value);
+          setScormData((prev: any) => ({ ...prev, [key]: value }));
+          
+          // Track progress based on SCORM data
+          if (key === 'cmi.core.lesson_status' && value === 'completed') {
+            setProgress(100);
+          } else if (key === 'cmi.core.score.raw') {
+            const score = parseInt(value);
+            if (!isNaN(score)) {
+              setProgress(score);
+            }
+          }
+          return 'true';
+        },
+        LMSCommit: () => {
+          console.log('SCORM: LMSCommit');
+          // Save current progress
+          handleSaveProgress();
+          return 'true';
+        },
+        LMSGetLastError: () => '0',
+        LMSGetErrorString: () => 'No error',
+        LMSGetDiagnostic: () => ''
+      };
+
+      // Also support SCORM 2004
+      (window as any).API_1484_11 = (window as any).API;
+    }
+
+    return () => {
+      // Clean up SCORM API
+      delete (window as any).API;
+      delete (window as any).API_1484_11;
+    };
+  }, [isOpen, scormData, courseId]);
+
+  const handleSaveProgress = () => {
+    // Save current progress and SCORM data to server
+    fetch('/api/scorm/progress', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        courseId,
+        progress,
+        scormData,
+        completed: progress >= 100,
+      }),
+    }).catch(console.error);
+  };
 
   const handleClose = () => {
     if (user) {
-      // Log SCORM close event
+      // Log SCORM close event and final progress
       fetch('/api/scorm/close', {
         method: 'POST',
         headers: {
@@ -46,6 +136,9 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
           courseId,
         }),
       }).catch(console.error);
+
+      // Save final progress with SCORM data
+      handleSaveProgress();
     }
     onClose();
   };
@@ -55,37 +148,55 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent 
-        className={`${isFullscreen ? 'max-w-full h-full w-full' : 'max-w-6xl h-[80vh]'} p-0`}
-      >
-        <DialogHeader className="p-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold">{courseTitle}</DialogTitle>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleFullscreen}
-                className="h-8 w-8 p-0"
-              >
-                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClose}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+    <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
+      
+      {/* Modal Content */}
+      <div className={`fixed ${isFullscreen ? 'inset-0' : 'inset-8'} bg-background rounded-lg shadow-xl flex flex-col overflow-hidden`}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b bg-background">
+          <h2 className="text-xl font-semibold">{courseTitle}</h2>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleFullscreen}
+              className="h-9 w-9"
+            >
+              {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="h-9 w-9"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+        
+        {/* Progress Bar */}
+        {progress > 0 && (
+          <div className="px-4 py-2 border-b bg-background/95">
+            <div className="flex items-center justify-between text-sm mb-1">
+              <span className="text-muted-foreground">Course Progress</span>
+              <span className="font-semibold">{progress}%</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-primary to-accent h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
-        </DialogHeader>
+        )}
         
-        <div className="flex-1 relative">
+        {/* Content Area */}
+        <div className="flex-1 relative overflow-hidden">
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading SCORM content...</p>
@@ -101,8 +212,8 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
@@ -126,11 +237,12 @@ export function ScormLauncher({ courseId, courseTitle, description, imageUrl, on
 
     try {
       // First enroll the user in the course
-      const enrollResponse = await fetch(`/api/courses/${courseId}/enroll`, {
+      const enrollResponse = await fetch(`/api/enrollments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ courseId }),
       });
 
       if (enrollResponse.ok) {
@@ -188,7 +300,7 @@ export function ScormLauncher({ courseId, courseTitle, description, imageUrl, on
             </Button>
           ) : (
             <div className="space-y-2">
-              <SignUpButton mode="modal" fallbackRedirectUrl="/" signInFallbackRedirectUrl="/">
+              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard" signInFallbackRedirectUrl="/dashboard">
                 <Button className="w-full bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all">
                   <Play className="w-4 h-4 mr-2" />
                   Sign Up to Access
@@ -196,7 +308,7 @@ export function ScormLauncher({ courseId, courseTitle, description, imageUrl, on
               </SignUpButton>
               <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
-                <SignInButton mode="modal" fallbackRedirectUrl="/" signUpFallbackRedirectUrl="/">
+                <SignInButton mode="modal" fallbackRedirectUrl="/dashboard" signUpFallbackRedirectUrl="/dashboard">
                   <button className="text-primary hover:underline font-medium">
                     Sign In
                   </button>

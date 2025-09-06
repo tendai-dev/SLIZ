@@ -56,7 +56,7 @@ export default function Landing() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                <SignUpButton mode="modal">
+                <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard" signInFallbackRedirectUrl="/dashboard">
                   <Button 
                     size="lg" 
                     className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105"
@@ -201,6 +201,7 @@ export default function Landing() {
                   courseId={course.id}
                   courseTitle={course.title}
                   description={course.description}
+                  imageUrl={course.imageUrl || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"}
                 />
               ))
             ) : (
@@ -317,7 +318,7 @@ export default function Landing() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <SignUpButton mode="modal">
+              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard" signInFallbackRedirectUrl="/dashboard">
                 <Button 
                   size="lg" 
                   className="bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all transform hover:scale-105 text-lg px-8 py-4"

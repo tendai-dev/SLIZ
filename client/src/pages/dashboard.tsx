@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Navigation } from '@/components/navigation';
 import { ScormPlayer } from '@/components/scorm-player';
 import { Play, BookOpen, Clock, Trophy, TrendingUp } from 'lucide-react';
+import { useApiRequest } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
-import { useQuery } from '@tanstack/react-query';
 
 interface EnrolledCourse {
   id: string;
@@ -18,30 +19,86 @@ interface EnrolledCourse {
 }
 
 export default function Dashboard() {
+  const { isSignedIn, user } = useUser();
+  const queryClient = useQueryClient();
+  const apiRequest = useApiRequest();
   const [selectedCourse, setSelectedCourse] = useState<EnrolledCourse | null>(null);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
-  const { user, isSignedIn } = useUser();
 
   const { data: enrolledCourses = [], isLoading } = useQuery({
     queryKey: ['enrolled-courses'],
     queryFn: async () => {
-      const response = await fetch('/api/enrollments');
-      if (!response.ok) throw new Error('Failed to fetch enrollments');
+      const response = await apiRequest('GET', '/api/enrollments/my');
       return response.json();
     },
     enabled: isSignedIn,
+    refetchInterval: 5000, // Refresh every 5 seconds to get updated progress
   });
+
+  const { data: allCourses = [] } = useQuery({
+    queryKey: ['all-courses'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/courses');
+      return res.json();
+    },
+    enabled: isSignedIn,
+  });
+
+  // Build a view model for enrolled courses by joining enrollment records with course metadata
+  const myCourses: EnrolledCourse[] = (enrolledCourses as any[]).map((e: any) => {
+    const course = (allCourses as any[]).find((c) => c.id === e.courseId);
+    return {
+      id: e.courseId,
+      title: course?.title || 'Course',
+      description: course?.description || '',
+      imageUrl: course?.imageUrl,
+      progress: Number(e.progress || 0),
+      completed: Number(e.progress || 0) >= 100 || !!e.completedAt,
+      lastAccessed: e.completedAt || e.enrolledAt,
+    } as EnrolledCourse;
+  });
+  
+  // Remove duplicates and ensure unique course IDs
+  const enrolledIds = new Set((enrolledCourses as any[]).map((e: any) => e.courseId));
+  const availableCourses = (allCourses as any[])
+    .filter((c) => !enrolledIds.has(c.id))
+    .filter((course, index, self) => 
+      index === self.findIndex((c) => c.id === course.id)
+    );
 
   const handleLaunchCourse = (course: EnrolledCourse) => {
     setSelectedCourse(course);
     setIsPlayerOpen(true);
   };
 
+  const handleEnroll = async (courseId: string) => {
+    try {
+      const res = await apiRequest('POST', '/api/enrollments', { courseId });
+      await queryClient.invalidateQueries({ queryKey: ['enrolled-courses'] });
+      await queryClient.invalidateQueries({ queryKey: ['all-courses'] });
+    } catch (error: any) {
+      console.error("Dashboard enrollment error details:", {
+        message: error?.message,
+        status: error?.status,
+        courseId
+      });
+    }
+  };
+
+  // Sport-specific thumbnail images for each course
   const courseImages = {
-    "s-l-i-z-micro-course-1-sport-facility-and-event-management-scorm12-QOrGCF5z": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-    "s-l-i-z-micro-course-2-basic-finance-management-scorm12-D24iHB-D": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-    "s-l-i-z-micro-course-3-sport-marketing-scorm12-LpQGKIfD": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-    "s-l-i-z-micro-course-4-management-of-sport-organizations-scorm12-wrUhSRL8": "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+    "s-l-i-z-micro-course-1-sport-facility-and-event-management-scorm12-QOrGCF5z": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", // Stadium/sports facility
+    "s-l-i-z-micro-course-2-basic-finance-management-scorm12-D24iHB-D": "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", // Finance/money management
+    "s-l-i-z-micro-course-3-sport-marketing-scorm12-LpQGKIfD": "https://images.unsplash.com/photo-1556817411-31ae72fa3ea0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", // Sports marketing/branding
+    "s-l-i-z-micro-course-4-management-of-sport-organizations-scorm12-wrUhSRL8": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" // Team management/leadership
+  };
+
+  // Map course IDs to actual SCORM folder names
+  const coursePathMap: Record<string, string> = {
+    "scorm-course-1": "s-l-i-z-micro-course-1-sport-facility-and-event-management-scorm12-QOrGCF5z",
+    "scorm-course-2": "s-l-i-z-micro-course-2-basic-finance-management-scorm12-D24iHB-D",
+    "scorm-course-3": "s-l-i-z-micro-course-3-sport-marketing-scorm12-LpQGKIfD",
+    "scorm-course-4": "s-l-i-z-micro-course-4-management-of-sport-organizations-scorm12-wrUhSRL8"
   };
 
   if (!isSignedIn) {
@@ -166,11 +223,11 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enrolledCourses.map((course: any) => (
-                <Card key={course.id} className="glass-card hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-105 overflow-hidden">
+              {myCourses.map((course: any, index: number) => (
+                <Card key={`enrolled-${course.id}-${index}`} className="glass-card hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-105 overflow-hidden">
                   <div className="relative h-48 w-full overflow-hidden">
                     <img 
-                      src={courseImages[course.id as keyof typeof courseImages] || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"} 
+                      src={courseImages[coursePathMap[course.id] as keyof typeof courseImages] || course.imageUrl || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"} 
                       alt={course.title}
                       className="w-full h-full object-cover"
                     />
@@ -220,6 +277,40 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Available Courses to Enroll */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-6">Available Courses</h2>
+          {availableCourses.length === 0 ? (
+            <p className="text-muted-foreground">You're enrolled in all available courses. Great job!</p>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {availableCourses.map((course: any, index: number) => (
+                <Card key={`available-${course.id}-${index}`} className="glass-card hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-105 overflow-hidden">
+                  <div className="relative h-48 w-full overflow-hidden">
+                    <img 
+                      src={courseImages[coursePathMap[course.id] as keyof typeof courseImages] || course.imageUrl || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=400&h=300"} 
+                      alt={course.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  </div>
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-bold mb-2 text-gradient">{course.title}</h3>
+                    <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{course.description}</p>
+                    <Button 
+                      onClick={() => handleEnroll(course.id)}
+                      className="w-full bg-gradient-to-r from-primary to-accent text-background font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Enroll
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* SCORM Player */}
@@ -227,7 +318,7 @@ export default function Dashboard() {
         <ScormPlayer
           courseId={selectedCourse.id}
           courseTitle={selectedCourse.title}
-          launchUrl={`/scorm-courses/${selectedCourse.id}/scormcontent/index.html`}
+          launchUrl={`/scorm-courses/${coursePathMap[selectedCourse.id] || selectedCourse.id}/scormcontent/index.html`}
           isOpen={isPlayerOpen}
           onClose={() => {
             setIsPlayerOpen(false);

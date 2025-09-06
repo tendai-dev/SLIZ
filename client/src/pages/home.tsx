@@ -36,11 +36,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation 
-        isAuthenticated={true}
-        user={user}
-        onSignOut={handleSignOut}
-      />
+      <Navigation />
       
       <div className="container mx-auto px-6 py-8 mt-20">
         {/* Welcome Section */}
@@ -215,23 +211,41 @@ export default function Home() {
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {courses.slice(0, 4).map((course: any) => (
-              <CourseCard
-                key={course.id}
-                id={course.id}
-                title={course.title}
-                description={course.description}
-                imageUrl={course.imageUrl}
-                difficulty={course.difficulty}
-                duration={`${course.duration} weeks`}
-                students={0} // Would need to fetch enrollment count
-                rating={4.8}
-                progress={0}
-                onEnroll={() => {
-                  // Handle enrollment
-                }}
-              />
-            ))}
+            {courses
+              .sort((a: any, b: any) => {
+                // Sort by course ID number to ensure order 1-4
+                const numA = parseInt(a.id.replace('scorm-course-', ''));
+                const numB = parseInt(b.id.replace('scorm-course-', ''));
+                return numA - numB;
+              })
+              .slice(0, 4)
+              .map((course: any) => {
+                // Map course IDs to appropriate images
+                const courseImages: Record<string, string> = {
+                  "scorm-course-1": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+                  "scorm-course-2": "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+                  "scorm-course-3": "https://images.unsplash.com/photo-1556817411-31ae72fa3ea0?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
+                  "scorm-course-4": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"
+                };
+                
+                return (
+                  <CourseCard
+                    key={course.id}
+                    id={course.id}
+                    title={course.title}
+                    description={course.description || 'SCORM course content'}
+                    imageUrl={courseImages[course.id] || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"}
+                    difficulty={course.difficulty || 'Foundation'}
+                    duration={course.duration ? `${course.duration} weeks` : 'Self-paced'}
+                    students={0}
+                    rating={4.8}
+                    progress={0}
+                    onEnroll={() => {
+                      // Handle enrollment
+                    }}
+                  />
+                );
+              })}
           </div>
         </div>
       </div>

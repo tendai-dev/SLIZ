@@ -29,7 +29,13 @@ export class ScormParser {
     try {
       const courseDirectories = fs.readdirSync(this.scormCoursesPath, { withFileTypes: true })
         .filter(dirent => dirent.isDirectory())
-        .map(dirent => dirent.name);
+        .map(dirent => dirent.name)
+        .sort((a, b) => {
+          // Extract course numbers and sort numerically (1, 2, 3, 4)
+          const numA = parseInt(a.match(/micro-course-(\d+)/)?.[1] || '0');
+          const numB = parseInt(b.match(/micro-course-(\d+)/)?.[1] || '0');
+          return numA - numB;
+        });
 
       for (const courseDir of courseDirectories) {
         if (courseDir.startsWith('.')) continue; // Skip hidden directories
