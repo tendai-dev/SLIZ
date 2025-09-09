@@ -40,7 +40,7 @@ function Router() {
           <Route path="/courses" component={Courses} />
           <Route path="/courses/:id" component={CourseDetail} />
           <Route path="/quiz/:courseId" component={Quiz} />
-          <Route path="/badges" component={Badges} />
+          <Route path="/badges" component={BadgesPage} />
           <Route path="/dashboard/student" component={StudentDashboard} />
           <Route path="/dashboard/instructor" component={InstructorDashboard} />
           <Route path="/dashboard/admin" component={AdminDashboard} />
@@ -54,7 +54,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="sliz-theme">
+      <ThemeProvider defaultTheme="light" storageKey="sliz-theme">
         <TooltipProvider>
           <Toaster />
           <Router />

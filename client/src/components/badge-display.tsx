@@ -44,10 +44,10 @@ export function BadgeDisplay() {
 
   const fetchUserBadges = async () => {
     try {
-      const response = await fetch('/api/quiz/badges');
+      const response = await fetch('/api/badges');
       if (response.ok) {
         const data = await response.json();
-        setBadges(data.badges || []);
+        setBadges(data || []);
       }
     } catch (error) {
       console.error('Failed to fetch badges:', error);
@@ -56,10 +56,10 @@ export function BadgeDisplay() {
 
   const fetchUserCertificate = async () => {
     try {
-      const response = await fetch('/api/quiz/certificate');
+      const response = await fetch('/api/certificates');
       if (response.ok) {
         const data = await response.json();
-        setCertificate(data.certificate);
+        setCertificate(data[0] || null);
       }
     } catch (error) {
       console.error('Failed to fetch certificate:', error);

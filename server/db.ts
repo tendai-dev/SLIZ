@@ -7,9 +7,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?"
-  );
+  console.warn("DATABASE_URL not set, using fallback for development");
+  process.env.DATABASE_URL = "postgresql://localhost:5432/sliz_lms";
 }
 
 console.log("Setting up Neon PostgreSQL database...");

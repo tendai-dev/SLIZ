@@ -179,15 +179,15 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
   };
 
   return (
-    <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+    <div className={`fixed inset-0 z-[9999] ${isOpen ? 'block' : 'hidden'}`}>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={handleClose} />
       
       {/* Modal Content */}
-      <div className={`fixed ${isFullscreen ? 'inset-0' : 'inset-8'} bg-background rounded-lg shadow-xl flex flex-col overflow-hidden`}>
+      <div className={`fixed ${isFullscreen ? 'inset-0' : 'inset-4 md:inset-8'} bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden z-[10000] border border-border`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-background">
-          <h2 className="text-xl font-semibold">{courseTitle}</h2>
+        <div className="flex items-center justify-between p-4 border-b bg-card/95 backdrop-blur-sm">
+          <h2 className="text-xl font-semibold text-white truncate max-w-md">{courseTitle}</h2>
           <div className="flex items-center space-x-2">
             <Button
               variant="ghost"
@@ -210,10 +210,10 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
         
         {/* Progress Bar */}
         {progress > 0 && (
-          <div className="px-4 py-2 border-b bg-background/95">
+          <div className="px-4 py-2 border-b bg-card/95 backdrop-blur-sm">
             <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-muted-foreground">Course Progress</span>
-              <span className="font-semibold">{progress}%</span>
+              <span className="text-white/80">Course Progress</span>
+              <span className="font-semibold text-white">{progress}%</span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div 
@@ -225,12 +225,13 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
         )}
         
         {/* Content Area */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden bg-white">
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-              <div className="text-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm z-20">
+              <div className="text-center p-8 bg-card rounded-lg shadow-lg border">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading SCORM content...</p>
+                <p className="text-white font-medium">Loading SCORM content...</p>
+                <p className="text-white/80 text-sm mt-2">Please wait while we prepare your course</p>
               </div>
             </div>
           )}
@@ -240,7 +241,9 @@ export function ScormPlayer({ courseId, courseTitle, launchUrl, isOpen, onClose 
             className="w-full h-full border-0"
             title={courseTitle}
             onLoad={() => setIsLoading(false)}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+            sandbox="allow-scripts allow-forms allow-popups allow-modals allow-same-origin allow-top-navigation"
+            allow="fullscreen; autoplay; encrypted-media"
+            referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
       </div>
@@ -277,44 +280,55 @@ export function ScormLauncher({ courseId, courseTitle, description, imageUrl, on
       });
 
       if (enrollResponse.ok) {
-        // Then launch the SCORM course
-        const scormUrl = `/scorm-courses/${courseId}/scormcontent/index.html`;
-        setLaunchUrl(scormUrl);
+        // Get the correct SCORM launch URL from the server
+        const launchResponse = await fetch(`/api/courses/${courseId}/launch`);
+        if (launchResponse.ok) {
+          const launchData = await launchResponse.json();
+          setLaunchUrl(launchData.launchUrl || `/scorm-courses/${courseId}/scormcontent/index.html`);
+        } else {
+          // Fallback to direct path
+          setLaunchUrl(`/scorm-courses/${courseId}/scormcontent/index.html`);
+        }
         setIsPlayerOpen(true);
       } else {
         console.error('Failed to enroll in course');
       }
     } catch (error) {
       console.error('Failed to launch SCORM course:', error);
+      // Fallback launch without enrollment check
+      setLaunchUrl(`/scorm-courses/${courseId}/scormcontent/index.html`);
+      setIsPlayerOpen(true);
     }
   };
 
   return (
     <>
-      <Card className="glass-card hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-105 overflow-hidden">
-        {imageUrl && (
-          <div className="relative h-48 w-full overflow-hidden">
-            <img 
-              src={imageUrl} 
-              alt={courseTitle}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4">
-              <span className="bg-primary/90 text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
-                SCORM Course
-              </span>
-            </div>
+      <Card className="glass-card hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 transform hover:scale-105 overflow-hidden h-full flex flex-col">
+        <div className="relative h-48 w-full overflow-hidden bg-gray-100">
+          <img 
+            src={imageUrl || "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300"} 
+            alt={courseTitle}
+            className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300";
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <span className="bg-primary/90 text-primary-foreground px-3 py-1 rounded-full text-sm font-medium">
+              SCORM Course
+            </span>
           </div>
-        )}
+        </div>
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-gradient">{courseTitle}</CardTitle>
+          <CardTitle className="text-xl font-bold text-black">{courseTitle}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground mb-4 line-clamp-3">{description}</p>
+        <CardContent className="flex-1 flex flex-col">
+          <p className="text-black mb-4 line-clamp-3 flex-1">{description}</p>
           
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+            <div className="flex items-center space-x-4 text-sm text-black">
               <span className="bg-primary/20 text-primary px-2 py-1 rounded-full">SCORM</span>
               <span>Self-paced</span>
               <span>Interactive</span>
@@ -337,7 +351,7 @@ export function ScormLauncher({ courseId, courseTitle, description, imageUrl, on
                   Sign Up to Access
                 </Button>
               </SignUpButton>
-              <div className="text-center text-sm text-muted-foreground">
+              <div className="text-center text-sm text-black">
                 Already have an account?{' '}
                 <SignInButton mode="modal" fallbackRedirectUrl="/dashboard" signUpFallbackRedirectUrl="/dashboard">
                   <button className="text-primary hover:underline font-medium">

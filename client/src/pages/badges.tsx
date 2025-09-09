@@ -30,12 +30,12 @@ export function BadgesPage() {
 
   const fetchBadges = async () => {
     try {
-      const response = await fetch('/api/quiz/badges');
+      const response = await fetch('/api/badges');
       if (response.ok) {
         const data = await response.json();
         
         // Transform badges to include WVU/SLIZ partnership info
-        const transformedBadges = (data.badges || []).map((badge: any) => ({
+        const transformedBadges = (data || []).map((badge: any) => ({
           ...badge,
           issuingOrg: 'BOTH', // Both SLIZ and WVU issue badges
           score: badge.score || 80, // Include score if available

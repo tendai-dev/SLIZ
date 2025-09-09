@@ -44,9 +44,7 @@ export default function Courses() {
 
   const enrollMutation = useMutation({
     mutationFn: async (courseId: string) => {
-      const response = await apiRequest('POST', '/api/enrollments', {
-        courseId,
-      });
+      const response = await apiRequest('POST', `/api/enrollments/${courseId}`, { userId: user?.id || 'dev-user-1' });
       return response.json();
     },
     onSuccess: () => {

@@ -18,8 +18,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize SCORM integration
   const scormIntegration = new ScormIntegration();
   
-  // Serve static SCORM content
-  app.use('/scorm-courses', express.static(path.join(__dirname, 'public', 'scorm-courses')));
+  // Serve static SCORM content with proper headers
+  app.use('/scorm-courses', (req, res, next) => {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+    next();
+  }, express.static(path.join(__dirname, 'public', 'scorm-courses')));
+
+  // Add course launch endpoint
+  app.get('/api/courses/:courseId/launch', requireAuth, async (req, res) => {
+    try {
+      const { courseId } = req.params;
+      const launchUrl = `/scorm-courses/${courseId}/scormcontent/index.html`;
+      res.json({ launchUrl });
+    } catch (error) {
+      console.error('Error getting launch URL:', error);
+      res.status(500).json({ error: 'Failed to get launch URL' });
+    }
+  });
   
   // Auth middleware
   await setupClerkAuth(app);
@@ -185,17 +201,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enrollment routes
-  app.post('/api/enrollments', requireAuth, async (req: any, res) => {
+  app.post('/api/enrollments/:courseId', async (req: any, res) => {
     try {
-      console.log('Enrollment request body:', req.body);
-      console.log('User auth:', req.auth);
+      const courseId = req.params.courseId;
+      console.log('Enrollment request received for courseId:', courseId);
       
-      // Accept only courseId from the client and attach the authed userId
-      const { courseId } = z.object({ courseId: z.string() }).parse(req.body);
-      const userId = req.auth?.userId || 'dev-user-1';
+      // For development, use a test user ID if auth is not available
+      const userId = req.auth?.userId || req.body?.userId || 'dev-user-1';
       
-      console.log('Enrolling user:', userId, 'in course:', courseId);
-
+      console.log('Creating enrollment for userId:', userId, 'courseId:', courseId);
+      
+      // Ensure user exists in database (for development)
+      let user = await storage.getUser(userId);
+      if (!user) {
+        console.log('Creating user for development:', userId);
+        user = await storage.upsertUser({
+          id: userId,
+          email: `${userId}@sliz.edu.zw`,
+          firstName: userId.split('-')[0] || 'Test',
+          lastName: userId.split('-')[1] || 'User',
+          role: 'student'
+        });
+      }
+      
       // Check if already enrolled
       const existingEnrollment = await storage.getEnrollment(userId, courseId);
       if (existingEnrollment) {
@@ -206,17 +234,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enrollment = await storage.enrollUser({
         id: `enrollment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId,
-        courseId: req.params.courseId,
+        courseId: courseId,
         progress: 0,
       });
       console.log('Enrollment created:', enrollment);
       res.status(201).json(enrollment);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating enrollment - full details:", error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Validation error", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Failed to enroll" });
+        res.status(500).json({ message: error.message || "Failed to enroll" });
       }
     }
   });
@@ -409,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // SCORM Progress tracking
-  app.post('/api/scorm/progress', requireAuth, async (req, res) => {
+  app.post('/api/scorm/progress', requireAuth, async (req: any, res) => {
     try {
       const { courseId, progress, scormData, completed, currentLocation, suspendData } = req.body;
       const userId = req.auth.userId;
