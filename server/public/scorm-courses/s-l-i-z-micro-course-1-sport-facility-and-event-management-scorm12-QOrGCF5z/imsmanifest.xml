@@ -1,0 +1,127 @@
+<?xml version="1.0" ?>
+<manifest identifier="A8Cwt988p8frschhOmGpccKOEtaBWyvCQOrGCF5z" version="1"
+  xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+  xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+                      http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+  <metadata>
+    <schema>ADL SCORM</schema>
+    <schemaversion>1.2</schemaversion>
+    <adlcp:location>metadata.xml</adlcp:location> 
+  </metadata>
+  <organizations default="articulate_rise">
+      <organization identifier="articulate_rise">
+      <title>S.L.I.Z. Micro Course 1: Sport Facility and Event Management</title>
+      <item identifier="i1" identifierref="r1" isvisible="true">
+        <title>S.L.I.Z. Micro Course 1: Sport Facility and Event Management</title>
+        <adlcp:datafromlms>eyJjcHYiOiJRT3JHQ0Y1eiIsInJsZCI6ZmFsc2V9</adlcp:datafromlms>
+      </item>
+    </organization>
+  </organizations>
+  <resources>
+    <resource identifier="r1" type="webcontent" adlcp:scormtype="sco" href="scormdriver/indexAPI.html">
+      <!-- SCORMDRIVER STUFF -->
+      <file href="scormdriver/indexAPI.html" />
+      <file href="scormdriver/preloadIntegrity.js" />
+      <file href="scormdriver/driverOptions.js" />
+      <file href="scormdriver/AICCComm.html" />
+      <file href="scormdriver/auto-scripts/AutoBookmark.js" />
+      <file href="scormdriver/auto-scripts/AutoCompleteSCO.js" />
+      <file href="scormdriver/auto-scripts/CourseExit.js" />
+      <file href="scormdriver/blank.html" />
+      <file href="scormdriver/goodbye.html" />
+      <file href="scormdriver/scormdriver.js" />
+      <file href="scormdriver/browsersniff.js" />
+
+      <!-- RUNTIME COMMON STUFF -->
+      <file href="scormcontent/index.html" />
+
+      
+        <file href="scormcontent/lib/fonts/icomoon.ttf"/>
+        <file href="scormcontent/lib/fonts/icomoon.woff"/>
+
+        <file href="scormcontent/lib/icomoon.css"/>
+        <file href="scormcontent/lib/player-0.0.11.min.js"/>
+        <file href="scormcontent/lib/lzwcompress.js"/>
+      
+
+      <!-- FRONTEND BUNDLE ASSETS -->
+      <file href="scormcontent/lib/rise/223f0e9d.js" />
+<file href="scormcontent/lib/rise/fa74d7f1.css" />
+<file href="scormcontent/lib/rise/dc1846f6.js" />
+<file href="scormcontent/lib/rise/562775a4.css" />
+<file href="scormcontent/lib/rise/be50c3a3.js" />
+<file href="scormcontent/lib/rise/254e83dc.js" />
+<file href="scormcontent/lib/rise/c82cca6a.js" />
+<file href="scormcontent/lib/rise/40b4cf18.js" />
+<file href="scormcontent/lib/rise/b2cebec4.js" />
+<file href="scormcontent/lib/rise/70fd6e03.js" />
+<file href="scormcontent/lib/rise/48ed4c70.js" />
+<file href="scormcontent/lib/rise/0bcec83e.js" />
+<file href="scormcontent/lib/rise/bd8404c0.js" />
+<file href="scormcontent/lib/mondrian/entry.js" />
+<file href="scormcontent/lib/mondrian/ab103845.js" />
+<file href="scormcontent/lib/mondrian/8fae69d6.js" />
+<file href="scormcontent/lib/mondrian/13708fa9.js" />
+<file href="scormcontent/lib/mondrian/daeabcf0.js" />
+<file href="scormcontent/lib/mondrian/c8dca3ac.js" />
+<file href="scormcontent/lib/mondrian/09e37aee.js" />
+<file href="scormcontent/lib/mondrian/196251cf.js" />
+<file href="scormcontent/lib/sandbox/sandbox.html" />
+<file href="scormcontent/lib/sandbox/38319acc.js" />
+<file href="scormcontent/lib/sandbox/4adfab46.css" />
+
+
+      <!-- RUNTIME CONTENT STUFF -->
+      <file href="scormcontent/lib/fonts/Poppins-BoldItalic.woff" />
+<file href="scormcontent/lib/fonts/Poppins-Bold.woff" />
+<file href="scormcontent/lib/fonts/Poppins-SemiBoldItalic.woff" />
+<file href="scormcontent/lib/fonts/Poppins-SemiBold.woff" />
+<file href="scormcontent/lib/fonts/Poppins-Italic.woff" />
+<file href="scormcontent/lib/fonts/Poppins-Regular.woff" />
+<file href="scormcontent/lib/fonts/Lato2-Regular.woff" />
+<file href="scormcontent/lib/fonts/Lato2-Light.woff" />
+<file href="scormcontent/lib/fonts/Lato2-Italic.woff" />
+<file href="scormcontent/lib/fonts/Lato2-Bold.woff" />
+<file href="scormcontent/lib/fonts/Lato2-Black.woff" />
+<file href="scormcontent/assets/U-4MBMvz2Hc6MEo0.jpg" />
+<file href="scormcontent/assets/9-tQPX/SLIZ%20WVU.png" />
+<file href="scormcontent/assets/S.L.I.Z.%20Introduction%20by%20Mr.%20Maradza%20Russell%20Mhiribidi%20%282%29.mp4" />
+<file href="scormcontent/assets/S.L.I.Z.%20Introduction%20by%20Mr.%20Maradza%20Russell%20Mhiribidi%20%282%29.jpg" />
+<file href="scormcontent/assets/S.L.I.Z.%20Introduction%20by%20Mr.%20Maradza%20Russell%20Mhiribidi-en-US.vtt" />
+<file href="scormcontent/assets/Welcome%20From%20Dr.%20Bravo%20and%20Dr.%20Lee.mp4" />
+<file href="scormcontent/assets/Welcome%20From%20Dr.%20Bravo%20and%20Dr.%20Lee.jpg" />
+<file href="scormcontent/assets/Welcome%20From%20Dr.%20Bravo%20and%20Dr.%20Lee-en-US.vtt" />
+<file href="scormcontent/assets/S.L.I.Z.%20VENUE%20%26%20EVENT%20LEADER.jpg" />
+<file href="scormcontent/assets/S.L.I.Z.%20Money%20Manager.jpg" />
+<file href="scormcontent/assets/S.L.I.Z.%20Brand%20Builder.jpg" />
+<file href="scormcontent/assets/S.L.I.Z.%20Money%20Manager%20%282%29.png" />
+<file href="scormcontent/assets/2.png" />
+<file href="scormcontent/assets/1.png" />
+<file href="scormcontent/assets/3.png" />
+<file href="scormcontent/assets/pexels-photo-4064211.jpg" />
+<file href="scormcontent/assets/BPC%20%281%29.jpg" />
+<file href="scormcontent/assets/quote_background.jpg" />
+<file href="scormcontent/assets/WV_White.png" />
+<file href="scormcontent/assets/realS-/1.png" />
+<file href="scormcontent/assets/ccJvsv/2.png" />
+<file href="scormcontent/assets/S2ctxx/3.png" />
+<file href="scormcontent/assets/4.png" />
+<file href="scormcontent/assets/5.png" />
+<file href="scormcontent/assets/stock-image.jpg" />
+<file href="scormcontent/assets/mm1.jpg" />
+<file href="scormcontent/assets/pexels-photo-4064212.jpg" />
+<file href="scormcontent/assets/south-african-sport-venue.jpg" />
+<file href="scormcontent/assets/-IRhPW/stock-image.jpg" />
+<file href="scormcontent/assets/WVU-football-0818-Concession-stands-3-FRONT.jpg" />
+<file href="scormcontent/assets/philippa-rose-tite-x941Ano8X0c-unsplash.jpg" />
+<file href="scormcontent/assets/HKABMg/stock-image.jpg" />
+<file href="scormcontent/assets/SLIZ%20WVU%20End.png" />
+<file href="scormcontent/assets/ZKIAA3aB0pBPbTJR.png" />
+
+      <file href="scormcontent/locales/en.js" />
+
+    </resource>
+  </resources>
+</manifest>
